@@ -1,0 +1,22 @@
+/*
+ * ------------------------------------------------------------
+ * Generated placeholder template for the Shopify Web Replicator.
+ * Replace section settings or append additional generated sections as needed.
+ * ------------------------------------------------------------
+ */
+{
+  "sections": {
+    "main": {
+      "type": "generated-reference",
+      "settings": {
+        "eyebrow": "Generated placeholder",
+        "heading": "Reference replication workspace",
+        "body": "This JSON template points at the generated-reference section so operators have a stable preview target inside the local theme workspace.",
+        "cta_label": "Open checkout handoff"
+      }
+    }
+  },
+  "order": [
+    "main"
+  ]
+}

@@ -1,0 +1,110 @@
+{% comment %}
+  Placeholder output for the Shopify Web Replicator pipeline.
+  Real generation should replace this section while preserving the file path.
+{% endcomment %}
+
+<section class="generated-reference full-width">
+  <div class="generated-reference__content">
+    {% if section.settings.eyebrow != blank %}
+      <p class="generated-reference__eyebrow">{{ section.settings.eyebrow }}</p>
+    {% endif %}
+
+    <h1>{{ section.settings.heading }}</h1>
+    <p class="generated-reference__body">{{ section.settings.body }}</p>
+
+    {% if section.settings.cta_label != blank and section.settings.cta_link != blank %}
+      <a class="generated-reference__cta" href="{{ section.settings.cta_link }}">
+        {{ section.settings.cta_label }}
+      </a>
+    {% endif %}
+  </div>
+</section>
+
+{% stylesheet %}
+  .generated-reference {
+    display: grid;
+    grid-template-columns: var(--content-grid);
+    padding: 80px 0;
+    background:
+      radial-gradient(circle at top left, rgba(214, 237, 158, 0.9), transparent 28%),
+      linear-gradient(180deg, #fffdf5 0%, #eef4df 100%);
+  }
+
+  .generated-reference__content {
+    grid-column: 2;
+    padding: 0 24px;
+    max-width: 720px;
+  }
+
+  .generated-reference__eyebrow {
+    margin: 0 0 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 0.82rem;
+  }
+
+  .generated-reference h1 {
+    margin: 0;
+    font-size: clamp(2.75rem, 7vw, 5rem);
+    line-height: 0.95;
+  }
+
+  .generated-reference__body {
+    margin: 1.5rem 0 0;
+    max-width: 60ch;
+    font-size: 1.1rem;
+    line-height: 1.5;
+  }
+
+  .generated-reference__cta {
+    display: inline-flex;
+    margin-top: 1.75rem;
+    padding: 0.95rem 1.4rem;
+    border-radius: 999px;
+    text-decoration: none;
+    color: #fffdf5;
+    background-color: #17362b;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "Generated reference",
+  "settings": [
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Generated placeholder"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Reference page mapped into a Shopify section"
+    },
+    {
+      "type": "textarea",
+      "id": "body",
+      "label": "Body",
+      "default": "This file is the stable output target for generated Liquid. Replace the placeholder content with mapped structure, content, and assets from the reference site."
+    },
+    {
+      "type": "text",
+      "id": "cta_label",
+      "label": "CTA label",
+      "default": "Review generated output"
+    },
+    {
+      "type": "url",
+      "id": "cta_link",
+      "label": "CTA link"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Generated reference"
+    }
+  ]
+}
+{% endschema %}
