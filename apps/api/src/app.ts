@@ -2,18 +2,22 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { ZodError } from "zod";
 
+import type { AppRuntimeConfig } from "@shopify-web-replicator/shared";
 import { createReplicationJob, referenceIntakeSchema } from "@shopify-web-replicator/shared";
 
 import { InMemoryJobRepository, type JobRepository } from "./repository/in-memory-job-repository.js";
+import { getDefaultRuntimeConfig } from "./runtime.js";
 
 type CreateAppOptions = {
   repository?: JobRepository;
   enqueueJob?: (jobId: string) => Promise<void> | void;
+  runtime?: AppRuntimeConfig;
 };
 
 export function createApp(options: CreateAppOptions = {}) {
   const repository = options.repository ?? new InMemoryJobRepository();
   const enqueueJob = options.enqueueJob ?? (async () => undefined);
+  const runtime = options.runtime ?? getDefaultRuntimeConfig();
   const app = new Hono();
 
   app.use("*", cors());
@@ -75,6 +79,17 @@ export function createApp(options: CreateAppOptions = {}) {
     }
 
     return context.json(job);
+  });
+
+  app.get("/api/jobs", async (context) => {
+    const limit = Number.parseInt(context.req.query("limit") ?? "10", 10);
+    const recentJobs = await repository.listRecent(Number.isFinite(limit) && limit > 0 ? limit : 10);
+
+    return context.json(recentJobs);
+  });
+
+  app.get("/api/runtime", (context) => {
+    return context.json(runtime);
   });
 
   return app;

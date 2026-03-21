@@ -4,6 +4,8 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { createReplicationJob } from "@shopify-web-replicator/shared";
+
 import { SqliteJobRepository } from "./repository/sqlite-job-repository";
 import { createApp } from "./app";
 
@@ -95,6 +97,63 @@ describe("createApp", () => {
         referenceUrl: "https://example.com/product",
         notes: "PDP recreation"
       }
+    });
+  });
+
+  it("lists recent replication jobs newest first and honors the limit query param", async () => {
+    const dataRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-api-"));
+    tempDirectories.push(dataRoot);
+
+    const repository = new SqliteJobRepository(join(dataRoot, "replicator.db"));
+    const olderJob = createReplicationJob({
+      referenceUrl: "https://example.com/older",
+      notes: "Older job"
+    });
+    olderJob.createdAt = "2026-03-20T12:00:00.000Z";
+    olderJob.updatedAt = "2026-03-20T12:00:00.000Z";
+
+    const newerJob = createReplicationJob({
+      referenceUrl: "https://example.com/newer",
+      notes: "Newer job"
+    });
+    newerJob.createdAt = "2026-03-20T12:05:00.000Z";
+    newerJob.updatedAt = "2026-03-20T12:05:00.000Z";
+
+    await repository.save(olderJob);
+    await repository.save(newerJob);
+
+    const app = createApp({
+      repository,
+      enqueueJob: async () => undefined
+    });
+
+    const response = await app.request("/api/jobs?limit=1");
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual([
+      {
+        jobId: newerJob.id,
+        status: newerJob.status,
+        currentStage: newerJob.currentStage,
+        createdAt: newerJob.createdAt
+      }
+    ]);
+  });
+
+  it("returns runtime config for the handoff flow", async () => {
+    const app = createApp({
+      runtime: {
+        themeWorkspacePath: "/tmp/theme-workspace",
+        previewCommand: "shopify theme dev"
+      }
+    } as never);
+
+    const response = await app.request("/api/runtime");
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      themeWorkspacePath: "/tmp/theme-workspace",
+      previewCommand: "shopify theme dev"
     });
   });
 

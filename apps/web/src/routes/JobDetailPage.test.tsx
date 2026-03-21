@@ -135,6 +135,10 @@ describe("JobDetailPage", () => {
     expect(screen.getByText(/theme check passed/i)).toBeInTheDocument();
     expect(screen.getByText(/primary generated landing section output/i)).toBeInTheDocument();
     expect(screen.getByText(/reference intake accepted/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /review theme workspace handoff/i })).toHaveAttribute(
+      "href",
+      `/jobs/${job.id}/handoff`
+    );
   });
 
   it("polls until the job reaches a terminal state", async () => {

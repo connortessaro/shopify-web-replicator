@@ -1,7 +1,7 @@
 import { NavLink, Route, Routes } from "react-router-dom";
 
-import { loadJob, submitReference } from "./lib/api-client";
-import { HandoffPage } from "./routes/HandoffPage";
+import { loadJob, loadRecentJobs, loadRuntime, submitReference } from "./lib/api-client";
+import { HandoffPage, LatestHandoffPage } from "./routes/HandoffPage";
 import { IntakePage } from "./routes/IntakePage";
 import { JobDetailPage } from "./routes/JobDetailPage";
 
@@ -34,9 +34,16 @@ export function App() {
 
       <main className="main-content">
         <Routes>
-          <Route path="/" element={<IntakePage submitReference={submitReference} />} />
+          <Route
+            path="/"
+            element={<IntakePage submitReference={submitReference} loadRecentJobs={loadRecentJobs} />}
+          />
           <Route path="/jobs/:jobId" element={<JobDetailPage loadJob={loadJob} />} />
-          <Route path="/handoff" element={<HandoffPage />} />
+          <Route
+            path="/jobs/:jobId/handoff"
+            element={<HandoffPage loadJob={loadJob} loadRuntime={loadRuntime} />}
+          />
+          <Route path="/handoff" element={<LatestHandoffPage loadRecentJobs={loadRecentJobs} />} />
         </Routes>
       </main>
     </div>

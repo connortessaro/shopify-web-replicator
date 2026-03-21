@@ -2,12 +2,19 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-import type { ReplicationJob } from "@shopify-web-replicator/shared";
+import type { ReplicationJob, ReplicationJobSummary } from "@shopify-web-replicator/shared";
 
 import type { JobRepository } from "./in-memory-job-repository.js";
 
 type StoredJobRow = {
   payload: string;
+};
+
+type StoredJobSummaryRow = {
+  id: string;
+  status: ReplicationJobSummary["status"];
+  current_stage: ReplicationJobSummary["currentStage"];
+  created_at: string;
 };
 
 export class SqliteJobRepository implements JobRepository {
@@ -58,5 +65,25 @@ export class SqliteJobRepository implements JobRepository {
     }
 
     return JSON.parse(row.payload) as ReplicationJob;
+  }
+
+  async listRecent(limit: number): Promise<ReplicationJobSummary[]> {
+    return (
+      this.#database
+        .prepare(
+          `
+            SELECT id, status, current_stage, created_at
+            FROM replication_jobs
+            ORDER BY created_at DESC
+            LIMIT ?
+          `
+        )
+        .all(limit) as StoredJobSummaryRow[]
+    ).map((row) => ({
+      jobId: row.id,
+      status: row.status,
+      currentStage: row.current_stage,
+      createdAt: row.created_at
+    }));
   }
 }

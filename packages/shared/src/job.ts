@@ -128,6 +128,11 @@ export interface ReplicationJobSummary {
   createdAt: string;
 }
 
+export interface AppRuntimeConfig {
+  themeWorkspacePath: string;
+  previewCommand: string;
+}
+
 function createPendingArtifacts(): GeneratedThemeArtifact[] {
   return [
     {

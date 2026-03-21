@@ -1,18 +1,55 @@
-import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 import type { ReferenceIntake, ReplicationJobSummary } from "@shopify-web-replicator/shared";
 
 type IntakePageProps = {
   submitReference: (intake: ReferenceIntake) => Promise<ReplicationJobSummary>;
+  loadRecentJobs?: (limit?: number) => Promise<ReplicationJobSummary[]>;
+  recentJobsLimit?: number;
 };
 
-export function IntakePage({ submitReference }: IntakePageProps) {
+function formatTimestamp(value: string): string {
+  return new Date(value).toLocaleString();
+}
+
+export function IntakePage({
+  submitReference,
+  loadRecentJobs = async () => [],
+  recentJobsLimit = 5
+}: IntakePageProps) {
   const navigate = useNavigate();
   const [referenceUrl, setReferenceUrl] = useState("");
   const [notes, setNotes] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [recentJobs, setRecentJobs] = useState<ReplicationJobSummary[]>([]);
+  const [recentJobsError, setRecentJobsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function syncRecentJobs() {
+      try {
+        const jobs = await loadRecentJobs(recentJobsLimit);
+
+        if (!isCancelled) {
+          setRecentJobs(jobs);
+          setRecentJobsError(null);
+        }
+      } catch {
+        if (!isCancelled) {
+          setRecentJobsError("Unable to load recent jobs.");
+        }
+      }
+    }
+
+    void syncRecentJobs();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [loadRecentJobs, recentJobsLimit]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -36,48 +73,83 @@ export function IntakePage({ submitReference }: IntakePageProps) {
   }
 
   return (
-    <section className="panel">
-      <div className="eyebrow">Operator Intake</div>
-      <h1>Capture a reference storefront and start the replication pipeline.</h1>
-      <p className="lede">
-        This dashboard creates an internal replication job. The generated Shopify theme files
-        land in the local theme workspace for review before handoff.
-      </p>
+    <div className="stack">
+      <section className="panel">
+        <div className="eyebrow">Operator Intake</div>
+        <h1>Capture a reference storefront and start the replication pipeline.</h1>
+        <p className="lede">
+          This dashboard creates an internal replication job. The generated Shopify theme files
+          land in the local theme workspace for review before handoff.
+        </p>
 
-      <form className="stack" onSubmit={handleSubmit}>
-        <label className="field">
-          <span>Reference URL</span>
-          <input
-            aria-label="Reference URL"
-            type="url"
-            name="referenceUrl"
-            placeholder="https://example.com"
-            required
-            value={referenceUrl}
-            onChange={(event) => setReferenceUrl(event.target.value)}
-          />
-        </label>
+        <form className="stack" onSubmit={handleSubmit}>
+          <label className="field">
+            <span>Reference URL</span>
+            <input
+              aria-label="Reference URL"
+              type="url"
+              name="referenceUrl"
+              placeholder="https://example.com"
+              required
+              value={referenceUrl}
+              onChange={(event) => setReferenceUrl(event.target.value)}
+            />
+          </label>
 
-        <label className="field">
-          <span>Notes</span>
-          <textarea
-            aria-label="Notes"
-            name="notes"
-            rows={5}
-            placeholder="What should the replicator prioritize?"
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-          />
-        </label>
+          <label className="field">
+            <span>Notes</span>
+            <textarea
+              aria-label="Notes"
+              name="notes"
+              rows={5}
+              placeholder="What should the replicator prioritize?"
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+            />
+          </label>
 
-        <div className="actions">
-          <button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Starting..." : "Start replication"}
-          </button>
+          <div className="actions">
+            <button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Starting..." : "Start replication"}
+            </button>
+          </div>
+
+          {errorMessage ? <p className="error">{errorMessage}</p> : null}
+        </form>
+      </section>
+
+      <section className="panel stack">
+        <div>
+          <div className="eyebrow">Recent Jobs</div>
+          <h2>Resume operator work</h2>
         </div>
 
-        {errorMessage ? <p className="error">{errorMessage}</p> : null}
-      </form>
-    </section>
+        {recentJobsError ? <p className="error">{recentJobsError}</p> : null}
+        {!recentJobsError && recentJobs.length === 0 ? <p className="lede">No jobs have been created yet.</p> : null}
+
+        {recentJobs.length > 0 ? (
+          <ul className="artifact-list">
+            {recentJobs.map((job) => (
+              <li key={job.jobId}>
+                <div className="artifact-details">
+                  <strong>{job.jobId}</strong>
+                  <span>Status: {job.status}</span>
+                  <span>Current stage: {job.currentStage}</span>
+                  <span>Created: {formatTimestamp(job.createdAt)}</span>
+                </div>
+                <div className="recent-job-links">
+                  <Link className="secondary-link" to={`/jobs/${job.jobId}`}>
+                    View job {job.jobId}
+                  </Link>
+                  <Link className="secondary-link" to={`/jobs/${job.jobId}/handoff`}>
+                    Handoff for {job.jobId}
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
+    </div>
   );
 }

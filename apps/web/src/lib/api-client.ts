@@ -1,4 +1,5 @@
 import type {
+  AppRuntimeConfig,
   ReferenceIntake,
   ReplicationJob,
   ReplicationJobSummary
@@ -30,4 +31,16 @@ export async function loadJob(jobId: string): Promise<ReplicationJob> {
   const response = await fetch(`${apiBaseUrl}/api/jobs/${jobId}`);
 
   return parseJsonResponse<ReplicationJob>(response);
+}
+
+export async function loadRecentJobs(limit = 5): Promise<ReplicationJobSummary[]> {
+  const response = await fetch(`${apiBaseUrl}/api/jobs?limit=${limit}`);
+
+  return parseJsonResponse<ReplicationJobSummary[]>(response);
+}
+
+export async function loadRuntime(): Promise<AppRuntimeConfig> {
+  const response = await fetch(`${apiBaseUrl}/api/runtime`);
+
+  return parseJsonResponse<AppRuntimeConfig>(response);
 }

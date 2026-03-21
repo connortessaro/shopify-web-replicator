@@ -167,7 +167,7 @@ export function JobDetailPage({ loadJob, refreshIntervalMs = 2_000 }: JobDetailP
             </li>
           ))}
         </ul>
-        <Link className="secondary-link" to="/handoff">
+        <Link className="secondary-link" to={`/jobs/${job.id}/handoff`}>
           Review theme workspace handoff
         </Link>
       </div>
