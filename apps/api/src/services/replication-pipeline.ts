@@ -8,6 +8,11 @@ import type {
   ThemeCheckResult,
   ThemeMapping
 } from "@shopify-web-replicator/shared";
+import {
+  stableCommerceArtifact,
+  stableIntegrationArtifact,
+  stableStoreSetupArtifact
+} from "@shopify-web-replicator/shared";
 
 import type { JobRepository } from "../repository/in-memory-job-repository.js";
 
@@ -54,6 +59,21 @@ type CommerceGenerator = {
   }>;
 };
 
+type IntegrationGenerator = {
+  generate(input: {
+    analysis: ReferenceAnalysis;
+    mapping: ThemeMapping;
+    generation: NonNullable<ReplicationJob["generation"]>;
+    storeSetup: StoreSetupPlan;
+    commerce: CommerceWiringPlan;
+    artifacts: ReplicationJob["artifacts"];
+    validation: ThemeCheckResult;
+  }): Promise<{
+    artifact: ReplicationJob["artifacts"][number];
+    integration: NonNullable<ReplicationJob["integration"]>;
+  }>;
+};
+
 type ReplicationPipelineOptions = {
   repository: JobRepository;
   analyzer: Analyzer;
@@ -61,6 +81,7 @@ type ReplicationPipelineOptions = {
   generator: Generator;
   storeSetupGenerator: StoreSetupGenerator;
   commerceGenerator: CommerceGenerator;
+  integrationGenerator: IntegrationGenerator;
   themeValidator: ThemeValidator;
 };
 
@@ -116,6 +137,7 @@ export class ReplicationPipeline {
   readonly #generator: Generator;
   readonly #storeSetupGenerator: StoreSetupGenerator;
   readonly #commerceGenerator: CommerceGenerator;
+  readonly #integrationGenerator: IntegrationGenerator;
   readonly #themeValidator: ThemeValidator;
 
   constructor(options: ReplicationPipelineOptions) {
@@ -125,6 +147,7 @@ export class ReplicationPipeline {
     this.#generator = options.generator;
     this.#storeSetupGenerator = options.storeSetupGenerator;
     this.#commerceGenerator = options.commerceGenerator;
+    this.#integrationGenerator = options.integrationGenerator;
     this.#themeValidator = options.themeValidator;
   }
 
@@ -198,14 +221,43 @@ export class ReplicationPipeline {
         existingArtifact.path === commerceArtifact.path ? commerceArtifact : existingArtifact
       );
       completeStage(job, "commerce_wiring", commerce.plannedAt, "Deterministic commerce wiring is ready for operator review.");
+      startStage(job, "integration_check", commerce.plannedAt, "Preparing deterministic integration report.");
+      job.updatedAt = commerce.plannedAt;
+      await this.#repository.save(job);
+
+      const { artifact: integrationArtifact, integration } = await this.#integrationGenerator.generate({
+        analysis,
+        mapping,
+        generation,
+        storeSetup,
+        commerce,
+        artifacts: job.artifacts,
+        validation
+      });
+      job.integration = integration;
+      job.artifacts = job.artifacts.map((existingArtifact) =>
+        existingArtifact.path === integrationArtifact.path ? integrationArtifact : existingArtifact
+      );
+      job.updatedAt = integration.checkedAt;
+
+      if (integration.status === "failed") {
+        throw new Error(integration.summary);
+      }
+
+      completeStage(
+        job,
+        "integration_check",
+        integration.checkedAt,
+        "Deterministic integration report is ready for operator review."
+      );
       startStage(
         job,
         "review",
-        commerce.plannedAt,
-        "Generated theme files, store setup plan, and commerce wiring are ready for operator QA."
+        integration.checkedAt,
+        "Generated theme files, store setup plan, commerce wiring, and integration report are ready for operator QA."
       );
       job.status = "needs_review";
-      job.updatedAt = commerce.plannedAt;
+      job.updatedAt = integration.checkedAt;
       await this.#repository.save(job);
     } catch (error) {
       const message =
@@ -231,7 +283,7 @@ export class ReplicationPipeline {
 
       if (job.currentStage === "store_setup") {
         job.artifacts = job.artifacts.map((artifact) =>
-          artifact.kind === "config" && artifact.status !== "generated"
+          artifact.path === stableStoreSetupArtifact.path && artifact.status !== "generated"
             ? { ...artifact, status: "failed" }
             : artifact
         );
@@ -239,7 +291,15 @@ export class ReplicationPipeline {
 
       if (job.currentStage === "commerce_wiring") {
         job.artifacts = job.artifacts.map((artifact) =>
-          artifact.kind === "snippet" && artifact.status !== "generated"
+          artifact.path === stableCommerceArtifact.path && artifact.status !== "generated"
+            ? { ...artifact, status: "failed" }
+            : artifact
+        );
+      }
+
+      if (job.currentStage === "integration_check") {
+        job.artifacts = job.artifacts.map((artifact) =>
+          artifact.path === stableIntegrationArtifact.path && artifact.status !== "generated"
             ? { ...artifact, status: "failed" }
             : artifact
         );

@@ -23,8 +23,9 @@ This repo separates the operator-facing tooling from the Shopify theme output so
 8. Theme validation runs `shopify theme check` against the workspace.
 9. Store setup planning writes a stable `config/generated-store-setup.json` artifact and persists a typed plan for products, collections, menus, and structured content.
 10. Commerce wiring writes a stable `snippets/generated-commerce-wiring.liquid` artifact and persists a typed plan for cart entrypoints, add-to-cart behavior, and native checkout handoff.
-11. The operator dashboard polls until the job reaches `needs_review` or `failed`, then surfaces stage summaries, validation state, generated artifacts, store setup scope, and commerce wiring details in a job-scoped handoff.
-12. The handoff page loads runtime config from the API so the displayed workspace path and preview command match the real environment.
+11. Integration checks write a stable `config/generated-integration-report.json` artifact and persist deterministic consistency checks over generated artifacts, commerce snippet rendering, entrypoint resolution, and theme validation.
+12. The operator dashboard polls until the job reaches `needs_review` or `failed`, then surfaces stage summaries, validation state, generated artifacts, store setup scope, commerce wiring details, and integration results in a job-scoped handoff.
+13. The handoff page loads runtime config from the API so the displayed workspace path and preview command match the real environment.
 
 ## Runtime defaults
 
@@ -51,6 +52,7 @@ This repo separates the operator-facing tooling from the Shopify theme output so
 - `templates/collection.generated-reference.json`
 - `config/generated-store-setup.json`
 - `snippets/generated-commerce-wiring.liquid`
+- `config/generated-integration-report.json`
 
 ## Supported deterministic page types
 
