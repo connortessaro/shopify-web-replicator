@@ -2,7 +2,11 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { ZodError } from "zod";
 
-import type { AppRuntimeConfig } from "@shopify-web-replicator/shared";
+import type {
+  AppRuntimeConfig,
+  ReferenceIntake,
+  ReplicationJobSummary
+} from "@shopify-web-replicator/shared";
 import { createReplicationJob, referenceIntakeSchema } from "@shopify-web-replicator/shared";
 
 import { InMemoryJobRepository, type JobRepository } from "./repository/in-memory-job-repository.js";
@@ -10,12 +14,26 @@ import { getDefaultRuntimeConfig } from "./runtime.js";
 
 type CreateAppOptions = {
   repository?: JobRepository;
+  createJob?: (intake: ReferenceIntake) => Promise<ReplicationJobSummary>;
   enqueueJob?: (jobId: string) => Promise<void> | void;
   runtime?: AppRuntimeConfig;
 };
 
 export function createApp(options: CreateAppOptions = {}) {
   const repository = options.repository ?? new InMemoryJobRepository();
+  const createJob =
+    options.createJob ??
+    (async (intake: ReferenceIntake) => {
+      const job = await repository.save(createReplicationJob(intake));
+
+      return {
+        jobId: job.id,
+        currentStage: job.currentStage,
+        status: job.status,
+        createdAt: job.createdAt,
+        pageType: job.intake.pageType
+      };
+    });
   const enqueueJob = options.enqueueJob ?? (async () => undefined);
   const runtime = options.runtime ?? getDefaultRuntimeConfig();
   const app = new Hono();
@@ -30,24 +48,15 @@ export function createApp(options: CreateAppOptions = {}) {
     try {
       const payload = await context.req.json();
       const intake = referenceIntakeSchema.parse(payload);
-      const job = await repository.save(createReplicationJob(intake));
+      const created = await createJob(intake);
 
       queueMicrotask(() => {
-        void Promise.resolve(enqueueJob(job.id)).catch((error) => {
+        void Promise.resolve(enqueueJob(created.jobId)).catch((error) => {
           console.error("Failed to enqueue replication job", error);
         });
       });
 
-      return context.json(
-        {
-          jobId: job.id,
-          currentStage: job.currentStage,
-          status: job.status,
-          createdAt: job.createdAt,
-          pageType: job.intake.pageType
-        },
-        201
-      );
+      return context.json(created, 201);
     } catch (error: unknown) {
       if (error instanceof ZodError) {
         return context.json(

@@ -2,43 +2,58 @@
 
 ## Intent
 
-This repo separates the operator-facing tooling from the Shopify theme output so the generated storefront stays Shopify-native while the orchestration logic remains easier to evolve. The current implementation is a deterministic planning pipeline that proves the operator loop end to end across multiple Shopify-native page types without live crawling.
+This repo is built around a standalone MCP server that agents can call directly. The MCP server, companion API, and companion web app all share the same deterministic replication engine so the product can improve behind one domain model and one pipeline.
 
 ## Boundaries
 
-- `apps/web` owns the operator experience.
-- `apps/api` owns job lifecycle, SQLite persistence, deterministic analysis, mapping, theme generation, store setup planning, commerce wiring, and validation orchestration.
-- `packages/shared` owns the contract between the web app and API.
-- `packages/theme-workspace` owns the Liquid storefront output that will later be previewed or pushed with Shopify CLI.
+- `apps/mcp` owns the primary agent-facing stdio server and MCP tool registration.
+- `packages/engine` owns runtime config, SQLite persistence, orchestration, analysis, mapping, generation, store setup planning, commerce wiring, validation, and integration reporting.
+- `apps/api` owns the companion HTTP surface and delegates job creation and execution to the engine.
+- `apps/web` owns the companion human review surface and consumes the API.
+- `packages/shared` owns the contract shared across MCP, API, web, and engine.
+- `packages/theme-workspace` owns the Shopify-native output that gets previewed with Shopify CLI.
 
-## Current flow
+## Primary MCP flow
 
-1. An operator submits a reference URL and optional notes in the web app.
-2. The web app can also load recent job summaries so operators can resume in-progress or review-ready work.
-3. The web app calls the local API to create a replication job.
-4. The API persists the job in SQLite and immediately starts the deterministic pipeline.
-5. The analysis stage derives a typed page summary from the URL, explicit page type, and notes.
-6. The mapping stage converts that summary into page-type-specific Shopify section and template intent.
-7. Theme generation overwrites stable outputs for the selected page type inside `packages/theme-workspace`, including alternate templates for homepage, product, collection, and landing references.
-8. Theme validation runs `shopify theme check` against the workspace.
-9. Store setup planning writes a stable `config/generated-store-setup.json` artifact and persists a typed plan for products, collections, menus, and structured content.
-10. Commerce wiring writes a stable `snippets/generated-commerce-wiring.liquid` artifact and persists a typed plan for cart entrypoints, add-to-cart behavior, and native checkout handoff.
-11. Integration checks write a stable `config/generated-integration-report.json` artifact and persist deterministic consistency checks over generated artifacts, commerce snippet rendering, entrypoint resolution, and theme validation.
-12. The operator dashboard polls until the job reaches `needs_review` or `failed`, then surfaces stage summaries, validation state, generated artifacts, store setup scope, commerce wiring details, and integration results in a job-scoped handoff.
-13. The handoff page loads runtime config from the API so the displayed workspace path and preview command match the real environment.
+1. An MCP client spawns `apps/mcp` over stdio.
+2. The client calls `replicate_storefront` with `referenceUrl`, optional `pageType`, and optional `notes`.
+3. `apps/mcp` delegates to `packages/engine`.
+4. The engine creates a durable SQLite job and runs the deterministic pipeline synchronously for the tool call.
+5. `analysis` derives a typed summary from the reference URL, explicit page type, and notes.
+6. `mapping` converts that analysis into Shopify-native section and template intent.
+7. `theme_generation` writes the stable page-type-specific Liquid section and JSON template outputs.
+8. `store_setup` writes the stable deterministic store setup plan.
+9. `commerce_wiring` writes the stable deterministic commerce snippet.
+10. `validation` runs after all generated artifacts are written so the result reflects the final workspace.
+11. `integration_check` writes the stable deterministic integration report and verifies generated artifacts on disk, commerce entrypoints, section snippet rendering, checkout handoff markup, and final validation state.
+12. `review` becomes the terminal human handoff stage when the run succeeds; failures remain structured job results instead of transport failures.
+13. The tool result returns the full job snapshot, artifact metadata, runtime handoff info, and deterministic next actions.
+
+## Companion surfaces
+
+### HTTP API
+
+- `POST /api/jobs` creates a durable job through the shared engine contract.
+- `GET /api/jobs/:jobId` returns the full persisted job payload.
+- `GET /api/jobs?limit=<n>` returns recent job summaries.
+- `GET /api/runtime` returns the effective theme workspace path and preview command.
+
+### Web UI
+
+- Provides optional manual intake.
+- Polls persisted jobs until they reach `needs_review` or `failed`.
+- Surfaces generated artifacts, validation, integration, and runtime handoff data for operator QA.
 
 ## Runtime defaults
 
 - Job database path: `.data/replicator.db`
 - Theme workspace path: `packages/theme-workspace`
-- Both paths can be overridden with `REPLICATOR_DB_PATH` and `THEME_WORKSPACE_PATH`.
+- Preview command: `shopify theme dev`
 
-## Operator-facing API surface
+Overrides:
 
-- `POST /api/jobs` creates a job and queues the pipeline.
-- `GET /api/jobs/:jobId` returns the full persisted job payload.
-- `GET /api/jobs?limit=<n>` returns recent job summaries for intake and shortcut flows.
-- `GET /api/runtime` returns the effective workspace path and preview command for handoff.
+- `REPLICATOR_DB_PATH`
+- `THEME_WORKSPACE_PATH`
 
 ## Stable generated outputs
 

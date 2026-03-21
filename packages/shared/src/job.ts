@@ -7,6 +7,7 @@ export const pipelineStages = [
   "theme_generation",
   "store_setup",
   "commerce_wiring",
+  "validation",
   "integration_check",
   "review"
 ] as const;

@@ -30,6 +30,21 @@ describe("createReplicationJob", () => {
       summary: "Preparing deterministic landing page analysis.",
       startedAt: job.createdAt
     });
+    expect(job.stages.at(-3)).toMatchObject({
+      name: "validation",
+      status: "pending",
+      summary: "Waiting for validation."
+    });
+    expect(job.stages.at(-2)).toMatchObject({
+      name: "integration_check",
+      status: "pending",
+      summary: "Waiting for integration check."
+    });
+    expect(job.stages.at(-1)).toMatchObject({
+      name: "review",
+      status: "pending",
+      summary: "Waiting for review."
+    });
     expect(job.stages.slice(2).every((stage) => stage.status === "pending")).toBe(true);
     expect(job.artifacts).toEqual([
       {
@@ -96,6 +111,9 @@ describe("createReplicationJob", () => {
     expect(job.stages[1]).toMatchObject({
       summary: "Preparing deterministic product page analysis."
     });
+    expect(job.stages.at(-3)?.name).toBe("validation");
+    expect(job.stages.at(-2)?.name).toBe("integration_check");
+    expect(job.stages.at(-1)?.name).toBe("review");
     expect(job.artifacts).toEqual([
       {
         kind: "section",

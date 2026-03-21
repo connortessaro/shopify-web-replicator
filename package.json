@@ -3,10 +3,10 @@
   "private": true,
   "packageManager": "pnpm@10.30.3",
   "scripts": {
-    "dev": "pnpm --filter @shopify-web-replicator/shared build && pnpm -r --parallel --stream --filter @shopify-web-replicator/shared --filter @shopify-web-replicator/api --filter @shopify-web-replicator/web dev",
-    "build": "pnpm --filter @shopify-web-replicator/shared build && pnpm --filter @shopify-web-replicator/api build && pnpm --filter @shopify-web-replicator/web build",
-    "typecheck": "pnpm --filter @shopify-web-replicator/shared typecheck && pnpm --filter @shopify-web-replicator/api typecheck && pnpm --filter @shopify-web-replicator/web typecheck",
-    "test": "pnpm --filter @shopify-web-replicator/shared test && pnpm --filter @shopify-web-replicator/shared build && pnpm --filter @shopify-web-replicator/api test && pnpm --filter @shopify-web-replicator/web test",
+    "dev": "pnpm --filter @shopify-web-replicator/shared build && pnpm --filter @shopify-web-replicator/engine build && pnpm -r --parallel --stream --filter @shopify-web-replicator/shared --filter @shopify-web-replicator/engine --filter @shopify-web-replicator/api --filter @shopify-web-replicator/web --filter @shopify-web-replicator/mcp dev",
+    "build": "pnpm --filter @shopify-web-replicator/shared build && pnpm --filter @shopify-web-replicator/engine build && pnpm --filter @shopify-web-replicator/api build && pnpm --filter @shopify-web-replicator/web build && pnpm --filter @shopify-web-replicator/mcp build",
+    "typecheck": "pnpm --filter @shopify-web-replicator/shared typecheck && pnpm --filter @shopify-web-replicator/engine typecheck && pnpm --filter @shopify-web-replicator/api typecheck && pnpm --filter @shopify-web-replicator/web typecheck && pnpm --filter @shopify-web-replicator/mcp typecheck",
+    "test": "pnpm --filter @shopify-web-replicator/shared test && pnpm --filter @shopify-web-replicator/shared build && pnpm --filter @shopify-web-replicator/engine test && pnpm --filter @shopify-web-replicator/engine build && pnpm --filter @shopify-web-replicator/api test && pnpm --filter @shopify-web-replicator/web test && pnpm --filter @shopify-web-replicator/mcp test",
     "theme:check": "shopify theme check --path packages/theme-workspace"
   },
   "devDependencies": {
@@ -16,4 +16,3 @@
     "vitest": "^3.2.4"
   }
 }
-
