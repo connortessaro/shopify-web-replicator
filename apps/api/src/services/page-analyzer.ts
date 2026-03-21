@@ -1,7 +1,13 @@
-import type { ReferenceAnalysis, SectionBlueprintType } from "@shopify-web-replicator/shared";
+import type {
+  PageType,
+  ReferenceAnalysis,
+  SectionBlueprintType
+} from "@shopify-web-replicator/shared";
+import { pageTypeLabels } from "@shopify-web-replicator/shared";
 
 type AnalyzeInput = {
   referenceUrl: string;
+  pageType?: PageType;
   notes?: string;
 };
 
@@ -25,30 +31,55 @@ function deriveTitle(referenceUrl: URL): string {
   return toTitleCase(hostBase);
 }
 
-function deriveRecommendedSections(notes?: string): SectionBlueprintType[] {
-  if (!notes) {
-    return ["hero", "rich_text", "cta"];
+function derivePageType(referenceUrl: URL, pageType?: PageType): PageType {
+  if (pageType) {
+    return pageType;
+  }
+
+  if (referenceUrl.pathname === "/" || referenceUrl.pathname === "") {
+    return "homepage";
+  }
+
+  if (referenceUrl.pathname.startsWith("/products/")) {
+    return "product_page";
+  }
+
+  if (referenceUrl.pathname.startsWith("/collections/")) {
+    return "collection_page";
+  }
+
+  return "landing_page";
+}
+
+function deriveRecommendedSections(pageType: PageType): SectionBlueprintType[] {
+  if (pageType === "product_page") {
+    return ["product_detail", "rich_text", "cta"];
+  }
+
+  if (pageType === "collection_page") {
+    return ["hero", "collection_grid", "cta"];
   }
 
   return ["hero", "rich_text", "cta"];
 }
 
 export class DeterministicPageAnalyzer {
-  async analyze({ referenceUrl, notes }: AnalyzeInput): Promise<ReferenceAnalysis> {
+  async analyze({ referenceUrl, pageType, notes }: AnalyzeInput): Promise<ReferenceAnalysis> {
     const parsedUrl = new URL(referenceUrl);
+    const resolvedPageType = derivePageType(parsedUrl, pageType);
     const title = deriveTitle(parsedUrl);
     const summary = notes
-      ? `Prepared deterministic analysis for ${title}. Operator notes: ${notes}`
-      : `Prepared deterministic analysis for ${title}.`;
+      ? `Prepared deterministic ${pageTypeLabels[resolvedPageType]} analysis for ${title}. Operator notes: ${notes}`
+      : `Prepared deterministic ${pageTypeLabels[resolvedPageType]} analysis for ${title}.`;
 
     return {
       sourceUrl: referenceUrl,
       referenceHost: parsedUrl.hostname.replace(/^www\./, ""),
-      pageType: "landing_page",
+      pageType: resolvedPageType,
       title,
       summary,
       analyzedAt: new Date().toISOString(),
-      recommendedSections: deriveRecommendedSections(notes)
+      recommendedSections: deriveRecommendedSections(resolvedPageType)
     };
   }
 }

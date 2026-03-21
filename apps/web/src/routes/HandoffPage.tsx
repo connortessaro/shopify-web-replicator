@@ -6,6 +6,7 @@ import type {
   ReplicationJob,
   ReplicationJobSummary
 } from "@shopify-web-replicator/shared";
+import { pageTypeLabels } from "@shopify-web-replicator/shared";
 
 type HandoffPageProps = {
   loadJob: (jobId: string) => Promise<ReplicationJob>;
@@ -86,6 +87,9 @@ export function HandoffPage({ loadJob, loadRuntime }: HandoffPageProps) {
         <h1>Local Shopify theme workspace</h1>
         <p className="lede">
           Review the generated files for <strong>{job.id}</strong> before preview or publish.
+        </p>
+        <p className="lede">
+          Page type: <strong>{pageTypeLabels[job.intake.pageType ?? "landing_page"]}</strong>
         </p>
       </div>
 

@@ -1,4 +1,5 @@
 import type {
+  PageType,
   PipelineStage,
   ReferenceAnalysis,
   ReplicationJob,
@@ -9,7 +10,7 @@ import type {
 import type { JobRepository } from "../repository/in-memory-job-repository.js";
 
 type Analyzer = {
-  analyze(input: { referenceUrl: string; notes?: string }): Promise<ReferenceAnalysis>;
+  analyze(input: { referenceUrl: string; pageType?: PageType; notes?: string }): Promise<ReferenceAnalysis>;
 };
 
 type Mapper = {
@@ -108,6 +109,7 @@ export class ReplicationPipeline {
     try {
       const analysis = await this.#analyzer.analyze({
         referenceUrl: job.intake.referenceUrl,
+        pageType: job.intake.pageType,
         ...(job.intake.notes ? { notes: job.intake.notes } : {})
       });
       job.analysis = analysis;

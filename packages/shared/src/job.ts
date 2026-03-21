@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import { z } from "zod";
 
 export const pipelineStages = [
@@ -15,19 +13,52 @@ export const jobStatuses = ["queued", "in_progress", "needs_review", "completed"
 export const artifactKinds = ["section", "template", "snippet", "config"] as const;
 export const artifactStatuses = ["pending", "generated", "failed"] as const;
 export const validationStatuses = ["pending", "passed", "failed"] as const;
+export const pageTypes = ["landing_page", "homepage", "product_page", "collection_page"] as const;
 export const sectionBlueprintTypes = [
   "hero",
   "cta",
-  "rich_text"
+  "rich_text",
+  "product_detail",
+  "collection_grid"
 ] as const;
 
 export const stableThemeArtifacts = {
-  section: "sections/generated-reference.liquid",
-  template: "templates/page.generated-reference.json"
+  landing_page: {
+    section: "sections/generated-reference.liquid",
+    template: "templates/page.generated-reference.json",
+    sectionDescription: "Primary generated landing section output",
+    templateDescription: "Generated JSON template that references the stable landing section"
+  },
+  homepage: {
+    section: "sections/generated-homepage-reference.liquid",
+    template: "templates/index.generated-reference.json",
+    sectionDescription: "Stable generated homepage section output",
+    templateDescription: "Generated homepage template that references the stable homepage section"
+  },
+  product_page: {
+    section: "sections/generated-product-reference.liquid",
+    template: "templates/product.generated-reference.json",
+    sectionDescription: "Stable generated product section output",
+    templateDescription: "Generated product template that references the stable product section"
+  },
+  collection_page: {
+    section: "sections/generated-collection-reference.liquid",
+    template: "templates/collection.generated-reference.json",
+    sectionDescription: "Stable generated collection section output",
+    templateDescription: "Generated collection template that references the stable collection section"
+  }
 } as const;
+
+export const pageTypeLabels = {
+  landing_page: "landing page",
+  homepage: "homepage",
+  product_page: "product page",
+  collection_page: "collection page"
+} as const satisfies Record<(typeof pageTypes)[number], string>;
 
 export const referenceIntakeSchema = z.object({
   referenceUrl: z.string().url(),
+  pageType: z.enum(pageTypes).optional(),
   notes: z.string().trim().min(1).optional()
 });
 
@@ -37,8 +68,15 @@ export type JobStatus = (typeof jobStatuses)[number];
 export type ArtifactKind = (typeof artifactKinds)[number];
 export type ArtifactStatus = (typeof artifactStatuses)[number];
 export type ValidationStatus = (typeof validationStatuses)[number];
+export type PageType = (typeof pageTypes)[number];
 export type SectionBlueprintType = (typeof sectionBlueprintTypes)[number];
 export type ReferenceIntake = z.infer<typeof referenceIntakeSchema>;
+
+export interface NormalizedReferenceIntake {
+  referenceUrl: string;
+  pageType: PageType;
+  notes?: string;
+}
 
 export interface JobStage {
   name: PipelineStage;
@@ -70,7 +108,7 @@ export interface ThemeMappingSection {
 export interface ReferenceAnalysis {
   sourceUrl: string;
   referenceHost: string;
-  pageType: "landing_page";
+  pageType: PageType;
   title: string;
   summary: string;
   analyzedAt: string;
@@ -109,7 +147,7 @@ export interface ReplicationJob {
   id: string;
   status: JobStatus;
   currentStage: PipelineStage;
-  intake: ReferenceIntake;
+  intake: NormalizedReferenceIntake;
   stages: JobStage[];
   artifacts: GeneratedThemeArtifact[];
   analysis?: ReferenceAnalysis;
@@ -126,6 +164,7 @@ export interface ReplicationJobSummary {
   status: JobStatus;
   currentStage: PipelineStage;
   createdAt: string;
+  pageType: PageType;
 }
 
 export interface AppRuntimeConfig {
@@ -133,29 +172,39 @@ export interface AppRuntimeConfig {
   previewCommand: string;
 }
 
-function createPendingArtifacts(): GeneratedThemeArtifact[] {
+function normalizeReferenceIntake(intake: ReferenceIntake): NormalizedReferenceIntake {
+  return {
+    referenceUrl: intake.referenceUrl,
+    pageType: intake.pageType ?? "landing_page",
+    ...(intake.notes ? { notes: intake.notes } : {})
+  };
+}
+
+function createPendingArtifacts(pageType: PageType): GeneratedThemeArtifact[] {
+  const artifacts = stableThemeArtifacts[pageType];
+
   return [
     {
       kind: "section",
-      path: stableThemeArtifacts.section,
+      path: artifacts.section,
       status: "pending",
-      description: "Primary generated landing section output"
+      description: artifacts.sectionDescription
     },
     {
       kind: "template",
-      path: stableThemeArtifacts.template,
+      path: artifacts.template,
       status: "pending",
-      description: "Generated JSON template that references the stable landing section"
+      description: artifacts.templateDescription
     }
   ];
 }
 
 export function createReplicationJob(intake: ReferenceIntake): ReplicationJob {
-  const parsedIntake = referenceIntakeSchema.parse(intake);
+  const parsedIntake = normalizeReferenceIntake(referenceIntakeSchema.parse(intake));
   const timestamp = new Date().toISOString();
 
   return {
-    id: `job_${randomUUID().replaceAll("-", "").slice(0, 12)}`,
+    id: `job_${globalThis.crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`,
     status: "in_progress",
     currentStage: "analysis",
     intake: parsedIntake,
@@ -174,7 +223,7 @@ export function createReplicationJob(intake: ReferenceIntake): ReplicationJob {
         return {
           name,
           status: "current" as const,
-          summary: "Preparing deterministic landing-page analysis.",
+          summary: `Preparing deterministic ${pageTypeLabels[parsedIntake.pageType]} analysis.`,
           startedAt: timestamp
         };
       }
@@ -185,7 +234,7 @@ export function createReplicationJob(intake: ReferenceIntake): ReplicationJob {
         summary: `Waiting for ${name.replaceAll("_", " ")}.`
       };
     }),
-    artifacts: createPendingArtifacts(),
+    artifacts: createPendingArtifacts(parsedIntake.pageType),
     validation: {
       status: "pending",
       summary: "Theme validation has not run yet."

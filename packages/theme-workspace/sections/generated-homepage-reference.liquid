@@ -1,0 +1,38 @@
+{% comment %}
+  Placeholder homepage output for the Shopify Web Replicator pipeline.
+  Real generation should replace this section while preserving the file path.
+{% endcomment %}
+
+<section class="generated-homepage-reference full-width">
+  <div class="generated-homepage-reference__content">
+    <p class="generated-homepage-reference__eyebrow">{{ section.settings.eyebrow }}</p>
+    <h1>{{ section.settings.heading }}</h1>
+    <p class="generated-homepage-reference__body">{{ section.settings.body }}</p>
+    <p class="generated-homepage-reference__meta">{{ section.settings.mapping_summary }}</p>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Generated homepage",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Generated homepage" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Homepage replication workspace" },
+    {
+      "type": "textarea",
+      "id": "body",
+      "label": "Body",
+      "default": "This file is the stable output target for generated homepage Liquid."
+    },
+    {
+      "type": "textarea",
+      "id": "mapping_summary",
+      "label": "Mapping summary",
+      "default": "The deterministic homepage pipeline will replace this placeholder."
+    }
+  ],
+  "presets": [
+    { "name": "Generated homepage" }
+  ]
+}
+{% endschema %}

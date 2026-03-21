@@ -1,0 +1,14 @@
+{
+  "sections": {
+    "main": {
+      "type": "generated-collection-reference",
+      "settings": {
+        "eyebrow": "Generated collection",
+        "heading": "Collection replication workspace",
+        "body": "This alternate collection template points at the generated collection reference section.",
+        "mapping_summary": "The deterministic collection pipeline will replace this placeholder."
+      }
+    }
+  },
+  "order": ["main"]
+}

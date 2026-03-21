@@ -1,0 +1,14 @@
+{
+  "sections": {
+    "main": {
+      "type": "generated-homepage-reference",
+      "settings": {
+        "eyebrow": "Generated homepage",
+        "heading": "Homepage replication workspace",
+        "body": "This alternate homepage template points at the generated homepage reference section.",
+        "mapping_summary": "The deterministic homepage pipeline will replace this placeholder."
+      }
+    }
+  },
+  "order": ["main"]
+}

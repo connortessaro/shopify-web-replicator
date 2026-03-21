@@ -44,7 +44,8 @@ describe("createApp", () => {
       },
       body: JSON.stringify({
         referenceUrl: "https://example.com",
-        notes: "mobile-first PDP"
+        notes: "mobile-first PDP",
+        pageType: "product_page"
       })
     });
 
@@ -61,7 +62,8 @@ describe("createApp", () => {
       id: created.jobId,
       intake: {
         referenceUrl: "https://example.com",
-        notes: "mobile-first PDP"
+        notes: "mobile-first PDP",
+        pageType: "product_page"
       }
     });
   });
@@ -135,7 +137,8 @@ describe("createApp", () => {
         jobId: newerJob.id,
         status: newerJob.status,
         currentStage: newerJob.currentStage,
-        createdAt: newerJob.createdAt
+        createdAt: newerJob.createdAt,
+        pageType: "landing_page"
       }
     ]);
   });

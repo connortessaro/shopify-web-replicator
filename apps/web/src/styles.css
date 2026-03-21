@@ -21,6 +21,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -123,6 +124,7 @@ a {
 }
 
 .field input,
+.field select,
 .field textarea {
   width: 100%;
   padding: 0.9rem 1rem;

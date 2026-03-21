@@ -1,6 +1,6 @@
 # Shopify Web Replicator
 
-Shopify Web Replicator is a Liquid-first monorepo for turning a reference landing page into a deterministic Shopify theme handoff. The current Milestone 1 pipeline persists jobs locally, derives a predictable analysis and mapping from the intake URL and notes, and writes stable generated output into the Shopify theme workspace for operator review.
+Shopify Web Replicator is a Liquid-first monorepo for turning a reference storefront page into a deterministic Shopify theme handoff. The current pipeline persists jobs locally, derives a predictable analysis and mapping from the intake URL, page type, and notes, and writes stable generated output into the Shopify theme workspace for operator review.
 
 ## Workspace layout
 
@@ -24,14 +24,22 @@ Shopify Web Replicator is a Liquid-first monorepo for turning a reference landin
 - `THEME_WORKSPACE_PATH`: overrides the Shopify theme workspace path
   Default: `packages/theme-workspace`
 
-## Current Milestone 1 flow
+## Current Milestone 2 flow
 
 - Intake creates a durable job record in SQLite.
+- Intake accepts explicit page types for `landing_page`, `homepage`, `product_page`, and `collection_page`.
 - The operator dashboard shows recent jobs so work can be resumed without manually tracking job IDs.
 - The API auto-runs a deterministic local pipeline through `analysis`, `mapping`, `theme_generation`, and `review`.
-- Theme generation overwrites the stable outputs:
+- Theme generation overwrites stable page-type-specific outputs, including:
   `sections/generated-reference.liquid`
+  `sections/generated-homepage-reference.liquid`
+  `sections/generated-product-reference.liquid`
+  `sections/generated-collection-reference.liquid`
+- Matching alternate templates are generated in:
   `templates/page.generated-reference.json`
+  `templates/index.generated-reference.json`
+  `templates/product.generated-reference.json`
+  `templates/collection.generated-reference.json`
 - The operator dashboard polls job state until the run reaches `needs_review` or `failed`, then exposes a job-scoped handoff view.
 
 ## Operator endpoints
@@ -48,7 +56,7 @@ The Shopify theme is kept separate from the generator logic. Generated sections,
 ## Operator runbook
 
 1. Start the repo locally with `pnpm dev`.
-2. Open the web app, submit a reference URL, and watch the job detail page advance through the deterministic stages.
+2. Open the web app, choose the reference page type, submit the reference URL, and watch the job detail page advance through the deterministic stages.
 3. Use the Recent Jobs panel to reopen the job or jump directly to `/jobs/:jobId/handoff`.
 4. Review the generated artifacts and validation output in the handoff view.
 5. Run `shopify theme dev` inside the configured theme workspace and verify layout parity, content wiring, CTA behavior, and cart-to-checkout handoff.
@@ -56,5 +64,5 @@ The Shopify theme is kept separate from the generator logic. Generated sections,
 ## Known Milestone 1 limits
 
 - The pipeline is deterministic and local-only; it does not live-crawl or screenshot the reference site.
-- The current analysis assumes a landing-page-style reference and writes only the stable generated section and template outputs.
+- The current analysis requires one of the supported page types and writes only the stable generated section and template outputs for that type.
 - Store setup automation, multi-page replication, and checkout customization are not part of this slice.

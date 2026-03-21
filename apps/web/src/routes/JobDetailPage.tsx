@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import type { ReplicationJob } from "@shopify-web-replicator/shared";
+import { pageTypeLabels, type ReplicationJob } from "@shopify-web-replicator/shared";
 
 type JobDetailPageProps = {
   loadJob: (jobId: string) => Promise<ReplicationJob>;
@@ -87,6 +87,9 @@ export function JobDetailPage({ loadJob, refreshIntervalMs = 2_000 }: JobDetailP
         </p>
         <p className="lede">
           Current stage: <strong>{job.currentStage}</strong>
+        </p>
+        <p className="lede">
+          Page type: <strong>{pageTypeLabels[job.intake.pageType ?? "landing_page"]}</strong>
         </p>
         <p>{job.intake.notes ?? "No operator notes were added to this job."}</p>
         {job.error ? (

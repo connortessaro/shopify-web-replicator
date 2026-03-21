@@ -1,7 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import type { ReferenceIntake, ReplicationJobSummary } from "@shopify-web-replicator/shared";
+import {
+  pageTypeLabels,
+  pageTypes,
+  type ReferenceIntake,
+  type ReplicationJobSummary
+} from "@shopify-web-replicator/shared";
 
 type IntakePageProps = {
   submitReference: (intake: ReferenceIntake) => Promise<ReplicationJobSummary>;
@@ -20,6 +25,7 @@ export function IntakePage({
 }: IntakePageProps) {
   const navigate = useNavigate();
   const [referenceUrl, setReferenceUrl] = useState("");
+  const [pageType, setPageType] = useState("landing_page");
   const [notes, setNotes] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -60,6 +66,7 @@ export function IntakePage({
     try {
       const payload: ReferenceIntake = {
         referenceUrl: referenceUrl.trim(),
+        pageType,
         notes: notes.trim() || undefined
       };
 
@@ -94,6 +101,22 @@ export function IntakePage({
               value={referenceUrl}
               onChange={(event) => setReferenceUrl(event.target.value)}
             />
+          </label>
+
+          <label className="field">
+            <span>Page Type</span>
+            <select
+              aria-label="Page Type"
+              name="pageType"
+              value={pageType}
+              onChange={(event) => setPageType(event.target.value)}
+            >
+              {pageTypes.map((pageTypeOption) => (
+                <option key={pageTypeOption} value={pageTypeOption}>
+                  {pageTypeLabels[pageTypeOption]}
+                </option>
+              ))}
+            </select>
           </label>
 
           <label className="field">
@@ -133,6 +156,7 @@ export function IntakePage({
               <li key={job.jobId}>
                 <div className="artifact-details">
                   <strong>{job.jobId}</strong>
+                  <span>Page type: {pageTypeLabels[job.pageType ?? "landing_page"]}</span>
                   <span>Status: {job.status}</span>
                   <span>Current stage: {job.currentStage}</span>
                   <span>Created: {formatTimestamp(job.createdAt)}</span>

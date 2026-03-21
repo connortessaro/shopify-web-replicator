@@ -6,14 +6,16 @@ describe("createReplicationJob", () => {
   it("creates a job ready for deterministic analysis with stable pending theme artifacts", () => {
     const job = createReplicationJob({
       referenceUrl: "https://example.com",
-      notes: "hero-focused landing page"
+      notes: "hero-focused landing page",
+      pageType: "landing_page"
     });
 
     expect(job.status).toBe("in_progress");
     expect(job.currentStage).toBe("analysis");
     expect(job.intake).toEqual({
       referenceUrl: "https://example.com",
-      notes: "hero-focused landing page"
+      notes: "hero-focused landing page",
+      pageType: "landing_page"
     });
     expect(job.stages.map((stage) => stage.name)).toEqual([...pipelineStages]);
     expect(job.stages[0]).toMatchObject({
@@ -25,7 +27,7 @@ describe("createReplicationJob", () => {
     expect(job.stages[1]).toMatchObject({
       name: "analysis",
       status: "current",
-      summary: "Preparing deterministic landing-page analysis.",
+      summary: "Preparing deterministic landing page analysis.",
       startedAt: job.createdAt
     });
     expect(job.stages.slice(2).every((stage) => stage.status === "pending")).toBe(true);
@@ -61,5 +63,31 @@ describe("createReplicationJob", () => {
     expect(job.status).not.toBe("failed");
     expect(job.status).not.toBe("needs_review");
     expect(job.error).toBeUndefined();
+  });
+
+  it("creates product-page jobs with product-specific stable artifacts", () => {
+    const job = createReplicationJob({
+      referenceUrl: "https://example.com/products/trail-pack",
+      pageType: "product_page"
+    });
+
+    expect(job.intake.pageType).toBe("product_page");
+    expect(job.stages[1]).toMatchObject({
+      summary: "Preparing deterministic product page analysis."
+    });
+    expect(job.artifacts).toEqual([
+      {
+        kind: "section",
+        path: "sections/generated-product-reference.liquid",
+        status: "pending",
+        description: "Stable generated product section output"
+      },
+      {
+        kind: "template",
+        path: "templates/product.generated-reference.json",
+        status: "pending",
+        description: "Generated product template that references the stable product section"
+      }
+    ]);
   });
 });

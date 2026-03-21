@@ -43,7 +43,8 @@ export function createApp(options: CreateAppOptions = {}) {
           jobId: job.id,
           currentStage: job.currentStage,
           status: job.status,
-          createdAt: job.createdAt
+          createdAt: job.createdAt,
+          pageType: job.intake.pageType
         },
         201
       );

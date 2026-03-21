@@ -1,0 +1,15 @@
+{
+  "sections": {
+    "main": {
+      "type": "generated-product-reference",
+      "settings": {
+        "eyebrow": "Generated product",
+        "heading": "Product replication workspace",
+        "body": "This alternate product template points at the generated product reference section.",
+        "mapping_summary": "The deterministic product pipeline will replace this placeholder.",
+        "cta_label": "Add to cart"
+      }
+    }
+  },
+  "order": ["main"]
+}

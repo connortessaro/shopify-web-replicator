@@ -15,6 +15,7 @@ type StoredJobSummaryRow = {
   status: ReplicationJobSummary["status"];
   current_stage: ReplicationJobSummary["currentStage"];
   created_at: string;
+  page_type: ReplicationJobSummary["pageType"];
 };
 
 export class SqliteJobRepository implements JobRepository {
@@ -29,28 +30,47 @@ export class SqliteJobRepository implements JobRepository {
         id TEXT PRIMARY KEY,
         status TEXT NOT NULL,
         current_stage TEXT NOT NULL,
+        page_type TEXT NOT NULL DEFAULT 'landing_page',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         payload TEXT NOT NULL
       );
     `);
+    const columns = this.#database
+      .prepare("PRAGMA table_info(replication_jobs)")
+      .all() as Array<{ name: string }>;
+
+    if (!columns.some((column) => column.name === "page_type")) {
+      this.#database.exec(
+        "ALTER TABLE replication_jobs ADD COLUMN page_type TEXT NOT NULL DEFAULT 'landing_page';"
+      );
+    }
   }
 
   async save(job: ReplicationJob): Promise<ReplicationJob> {
     this.#database
       .prepare(
         `
-          INSERT INTO replication_jobs (id, status, current_stage, created_at, updated_at, payload)
-          VALUES (?, ?, ?, ?, ?, ?)
+          INSERT INTO replication_jobs (id, status, current_stage, page_type, created_at, updated_at, payload)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             status = excluded.status,
             current_stage = excluded.current_stage,
+            page_type = excluded.page_type,
             created_at = excluded.created_at,
             updated_at = excluded.updated_at,
             payload = excluded.payload
         `
       )
-      .run(job.id, job.status, job.currentStage, job.createdAt, job.updatedAt, JSON.stringify(job));
+      .run(
+        job.id,
+        job.status,
+        job.currentStage,
+        job.intake.pageType,
+        job.createdAt,
+        job.updatedAt,
+        JSON.stringify(job)
+      );
 
     return job;
   }
@@ -72,7 +92,7 @@ export class SqliteJobRepository implements JobRepository {
       this.#database
         .prepare(
           `
-            SELECT id, status, current_stage, created_at
+            SELECT id, status, current_stage, page_type, created_at
             FROM replication_jobs
             ORDER BY created_at DESC
             LIMIT ?
@@ -83,7 +103,8 @@ export class SqliteJobRepository implements JobRepository {
       jobId: row.id,
       status: row.status,
       currentStage: row.current_stage,
-      createdAt: row.created_at
+      createdAt: row.created_at,
+      pageType: row.page_type
     }));
   }
 }

@@ -21,13 +21,15 @@ describe("IntakePage", () => {
     );
 
     await user.type(screen.getByLabelText(/reference url/i), "https://example.com");
+    await user.selectOptions(screen.getByLabelText(/page type/i), "product_page");
     await user.type(screen.getByLabelText(/notes/i), "Match the homepage hero");
     await user.click(screen.getByRole("button", { name: /start replication/i }));
 
     await waitFor(() => {
       expect(submitReference).toHaveBeenCalledWith({
         referenceUrl: "https://example.com",
-        notes: "Match the homepage hero"
+        notes: "Match the homepage hero",
+        pageType: "product_page"
       });
     });
   });
@@ -43,7 +45,8 @@ describe("IntakePage", () => {
         jobId: "job_latest",
         currentStage: "review",
         status: "needs_review",
-        createdAt: "2026-03-20T12:00:00.000Z"
+        createdAt: "2026-03-20T12:00:00.000Z",
+        pageType: "collection_page"
       }
     ]);
 
@@ -54,6 +57,7 @@ describe("IntakePage", () => {
     );
 
     expect(await screen.findByText(/recent jobs/i)).toBeInTheDocument();
+    expect(screen.getByText(/page type: collection page/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /view job job_latest/i })).toHaveAttribute(
       "href",
       "/jobs/job_latest"
