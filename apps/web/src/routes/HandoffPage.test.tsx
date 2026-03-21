@@ -28,6 +28,13 @@ describe("HandoffPage", () => {
           status: "generated",
           description: "Deterministic store setup plan covering products, collections, menus, and structured content",
           lastWrittenAt: "2026-03-20T12:04:00.000Z"
+        },
+        {
+          kind: "snippet",
+          path: "snippets/generated-commerce-wiring.liquid",
+          status: "generated",
+          description: "Deterministic commerce wiring snippet covering cart entrypoints and native checkout handoff",
+          lastWrittenAt: "2026-03-20T12:05:00.000Z"
         }
       ],
       storeSetup: {
@@ -60,6 +67,24 @@ describe("HandoffPage", () => {
             type: "metaobject",
             fields: ["eyebrow", "heading", "body"]
           }
+        ]
+      },
+      commerce: {
+        plannedAt: "2026-03-20T12:05:00.000Z",
+        snippetPath: "snippets/generated-commerce-wiring.liquid",
+        summary: "Prepared deterministic commerce wiring plan for Example Storefront with native Shopify cart and checkout handoff.",
+        cartPath: "/cart",
+        checkoutPath: "/checkout",
+        entrypoints: [
+          {
+            label: "Primary CTA",
+            target: "/products/example-storefront-primary",
+            behavior: "Directs the operator to the primary product path before add-to-cart."
+          }
+        ],
+        qaChecklist: [
+          "Verify CTA routes land on the expected product or collection path.",
+          "Verify the cart uses native Shopify checkout handoff."
         ]
       },
       validation: {
@@ -95,6 +120,8 @@ describe("HandoffPage", () => {
     expect(screen.getByText(/no theme issues detected/i)).toBeInTheDocument();
     expect(screen.getByText(/sections\/generated-reference\.liquid/i)).toBeInTheDocument();
     expect(screen.getAllByText(/config\/generated-store-setup\.json/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/example-storefront-primary/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/example-storefront-primary/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/snippets\/generated-commerce-wiring\.liquid/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/\/checkout/i)).toBeInTheDocument();
   });
 });

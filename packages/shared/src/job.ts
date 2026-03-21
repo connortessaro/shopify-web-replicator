@@ -6,6 +6,7 @@ export const pipelineStages = [
   "mapping",
   "theme_generation",
   "store_setup",
+  "commerce_wiring",
   "review"
 ] as const;
 
@@ -53,6 +54,11 @@ export const stableThemeArtifacts = {
 export const stableStoreSetupArtifact = {
   path: "config/generated-store-setup.json",
   description: "Deterministic store setup plan covering products, collections, menus, and structured content"
+} as const;
+
+export const stableCommerceArtifact = {
+  path: "snippets/generated-commerce-wiring.liquid",
+  description: "Deterministic commerce wiring snippet covering cart entrypoints and native checkout handoff"
 } as const;
 
 export const pageTypeLabels = {
@@ -177,6 +183,22 @@ export interface StoreSetupPlan {
   contentModels: StoreSetupContentModelPlan[];
 }
 
+export interface CommerceEntryPoint {
+  label: string;
+  target: string;
+  behavior: string;
+}
+
+export interface CommerceWiringPlan {
+  plannedAt: string;
+  snippetPath: string;
+  summary: string;
+  cartPath: string;
+  checkoutPath: string;
+  entrypoints: CommerceEntryPoint[];
+  qaChecklist: string[];
+}
+
 export interface ThemeCheckResult {
   status: ValidationStatus;
   summary: string;
@@ -200,6 +222,7 @@ export interface ReplicationJob {
   mapping?: ThemeMapping;
   generation?: GenerationResult;
   storeSetup?: StoreSetupPlan;
+  commerce?: CommerceWiringPlan;
   validation: ThemeCheckResult;
   error?: JobError;
   createdAt: string;
@@ -248,6 +271,12 @@ function createPendingArtifacts(pageType: PageType): GeneratedThemeArtifact[] {
       path: stableStoreSetupArtifact.path,
       status: "pending",
       description: stableStoreSetupArtifact.description
+    },
+    {
+      kind: "snippet",
+      path: stableCommerceArtifact.path,
+      status: "pending",
+      description: stableCommerceArtifact.description
     }
   ];
 }

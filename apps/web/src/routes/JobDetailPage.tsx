@@ -200,6 +200,42 @@ export function JobDetailPage({ loadJob, refreshIntervalMs = 2_000 }: JobDetailP
         </div>
       ) : null}
 
+      {job.commerce ? (
+        <div className="panel stack">
+          <h2>Commerce wiring</h2>
+          <p>{job.commerce.summary}</p>
+          <p className="lede">
+            Snippet path: <strong>{job.commerce.snippetPath}</strong>
+          </p>
+          <p className="lede">
+            Cart path: <strong>{job.commerce.cartPath}</strong>
+          </p>
+          <p className="lede">
+            Checkout path: <strong>{job.commerce.checkoutPath}</strong>
+          </p>
+          <ul className="artifact-list">
+            {job.commerce.entrypoints.map((entrypoint) => (
+              <li key={`${entrypoint.label}-${entrypoint.target}`}>
+                <span>entrypoint</span>
+                <div className="artifact-details">
+                  <strong>{entrypoint.label}</strong>
+                  <span>{entrypoint.target}</span>
+                  <span>{entrypoint.behavior}</span>
+                </div>
+              </li>
+            ))}
+            {job.commerce.qaChecklist.map((check) => (
+              <li key={check}>
+                <span>qa</span>
+                <div className="artifact-details">
+                  <strong>{check}</strong>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="panel stack">
         <h2>Theme validation</h2>
         <p>{job.validation.summary}</p>

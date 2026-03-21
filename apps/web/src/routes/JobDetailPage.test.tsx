@@ -52,10 +52,17 @@ function createJob(overrides: Partial<ReplicationJob> = {}): ReplicationJob {
         completedAt: "2026-03-20T12:04:00.000Z"
       },
       {
+        name: "commerce_wiring",
+        status: "complete",
+        summary: "Deterministic commerce wiring is ready for operator review.",
+        startedAt: "2026-03-20T12:04:00.000Z",
+        completedAt: "2026-03-20T12:05:00.000Z"
+      },
+      {
         name: "review",
         status: "current",
-        summary: "Generated theme files and store setup plan are ready for operator QA.",
-        startedAt: "2026-03-20T12:04:00.000Z"
+        summary: "Generated theme files, store setup plan, and commerce wiring are ready for operator QA.",
+        startedAt: "2026-03-20T12:05:00.000Z"
       }
     ],
     artifacts: [
@@ -79,6 +86,13 @@ function createJob(overrides: Partial<ReplicationJob> = {}): ReplicationJob {
         status: "generated",
         description: "Deterministic store setup plan covering products, collections, menus, and structured content",
         lastWrittenAt: "2026-03-20T12:04:00.000Z"
+      },
+      {
+        kind: "snippet",
+        path: "snippets/generated-commerce-wiring.liquid",
+        status: "generated",
+        description: "Deterministic commerce wiring snippet covering cart entrypoints and native checkout handoff",
+        lastWrittenAt: "2026-03-20T12:05:00.000Z"
       }
     ],
     analysis: {
@@ -150,6 +164,24 @@ function createJob(overrides: Partial<ReplicationJob> = {}): ReplicationJob {
         }
       ]
     },
+    commerce: {
+      plannedAt: "2026-03-20T12:05:00.000Z",
+      snippetPath: "snippets/generated-commerce-wiring.liquid",
+      summary: "Prepared deterministic commerce wiring plan for Example Store with native Shopify cart and checkout handoff.",
+      cartPath: "/cart",
+      checkoutPath: "/checkout",
+      entrypoints: [
+        {
+          label: "Primary CTA",
+          target: "/products/example-store-primary",
+          behavior: "Directs the operator to the primary product path before add-to-cart."
+        }
+      ],
+      qaChecklist: [
+        "Verify CTA routes land on the expected product or collection path.",
+        "Verify the cart uses native Shopify checkout handoff."
+      ]
+    },
     validation: {
       status: "passed",
       summary: "Theme check passed.",
@@ -166,7 +198,7 @@ describe("JobDetailPage", () => {
     vi.useRealTimers();
   });
 
-  it("renders stage summaries, mapping details, store setup, validation, and generated artifacts", async () => {
+  it("renders stage summaries, mapping details, store setup, commerce wiring, validation, and generated artifacts", async () => {
     const job = createJob();
     const loadJob = vi.fn().mockResolvedValue(job);
 
@@ -186,7 +218,9 @@ describe("JobDetailPage", () => {
     expect(screen.getByText(/detected a hero-first landing page/i)).toBeInTheDocument();
     expect(screen.getByText(/mapped example store into the stable generated reference section/i)).toBeInTheDocument();
     expect(screen.getByText(/prepared deterministic store setup plan for example store/i)).toBeInTheDocument();
-    expect(screen.getByText(/example-store-primary/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/example-store-primary/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/prepared deterministic commerce wiring plan for example store/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/snippets\/generated-commerce-wiring\.liquid/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/theme check passed/i)).toBeInTheDocument();
     expect(screen.getByText(/primary generated landing section output/i)).toBeInTheDocument();
     expect(screen.getByText(/reference intake accepted/i)).toBeInTheDocument();
@@ -232,6 +266,11 @@ describe("JobDetailPage", () => {
           summary: "Waiting for store setup."
         },
         {
+          name: "commerce_wiring",
+          status: "pending",
+          summary: "Waiting for commerce wiring."
+        },
+        {
           name: "review",
           status: "pending",
           summary: "Waiting for review."
@@ -265,7 +304,11 @@ describe("JobDetailPage", () => {
       expect(loadJob).toHaveBeenCalledTimes(2);
     });
     expect(
-      (await screen.findAllByText(/generated theme files and store setup plan are ready for operator qa/i)).length
+      (
+        await screen.findAllByText(
+          /generated theme files, store setup plan, and commerce wiring are ready for operator qa/i
+        )
+      ).length
     ).toBeGreaterThan(0);
   });
 

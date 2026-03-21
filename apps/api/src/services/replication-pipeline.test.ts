@@ -14,6 +14,7 @@ import {
 import { SqliteJobRepository } from "../repository/sqlite-job-repository";
 
 import { ReplicationPipeline } from "./replication-pipeline";
+import { ShopifyCommerceWiringGenerator } from "./commerce-wiring-generator";
 import { ShopifyStoreSetupGenerator } from "./store-setup-generator";
 import { ShopifyThemeGenerator } from "./theme-generator";
 
@@ -25,7 +26,7 @@ describe("ReplicationPipeline", () => {
     tempDirectories.length = 0;
   });
 
-  it("processes a job from analysis through theme generation, store setup, and validation", async () => {
+  it("processes a job from analysis through theme generation, store setup, commerce wiring, and validation", async () => {
     const dataRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-jobs-"));
     const themeRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-theme-"));
     tempDirectories.push(dataRoot, themeRoot);
@@ -80,6 +81,7 @@ describe("ReplicationPipeline", () => {
       },
       generator: new ShopifyThemeGenerator(themeRoot),
       storeSetupGenerator: new ShopifyStoreSetupGenerator(themeRoot),
+      commerceGenerator: new ShopifyCommerceWiringGenerator(themeRoot),
       themeValidator: {
         async validate() {
           return {
@@ -109,6 +111,9 @@ describe("ReplicationPipeline", () => {
         summary:
           "Prepared deterministic store setup plan for Example Storefront covering products, collections, menus, and structured content for the landing page."
       },
+      commerce: {
+        summary: "Prepared deterministic commerce wiring plan for Example Storefront with native Shopify cart and checkout handoff."
+      },
       validation: {
         status: "passed"
       }
@@ -129,6 +134,11 @@ describe("ReplicationPipeline", () => {
           kind: "config",
           path: "config/generated-store-setup.json",
           status: "generated"
+        }),
+        expect.objectContaining({
+          kind: "snippet",
+          path: "snippets/generated-commerce-wiring.liquid",
+          status: "generated"
         })
       ])
     );
@@ -140,6 +150,9 @@ describe("ReplicationPipeline", () => {
     ).resolves.toContain('"type": "generated-reference"');
     await expect(readFile(join(themeRoot, "config/generated-store-setup.json"), "utf8")).resolves.toContain(
       "\"example-storefront\""
+    );
+    await expect(readFile(join(themeRoot, "snippets/generated-commerce-wiring.liquid"), "utf8")).resolves.toContain(
+      "/checkout"
     );
   });
 
@@ -176,6 +189,11 @@ describe("ReplicationPipeline", () => {
       },
       generator: new ShopifyThemeGenerator(themeRoot),
       storeSetupGenerator: {
+        async generate() {
+          throw new Error("Should never run");
+        }
+      },
+      commerceGenerator: {
         async generate() {
           throw new Error("Should never run");
         }
@@ -260,6 +278,11 @@ describe("ReplicationPipeline", () => {
           throw new Error("Store setup generation failed");
         }
       },
+      commerceGenerator: {
+        async generate() {
+          throw new Error("Should never run");
+        }
+      },
       themeValidator: {
         async validate() {
           return {
@@ -292,6 +315,103 @@ describe("ReplicationPipeline", () => {
         }),
         expect.objectContaining({
           kind: "config",
+          status: "failed"
+        })
+      ])
+    });
+  });
+
+  it("persists a failed job when commerce wiring generation throws", async () => {
+    const dataRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-jobs-"));
+    const themeRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-theme-"));
+    tempDirectories.push(dataRoot, themeRoot);
+
+    const repository = new SqliteJobRepository(join(dataRoot, "replicator.db"));
+    const job = createReplicationJob({
+      referenceUrl: "https://example.com",
+      pageType: "homepage"
+    });
+
+    await repository.save(job);
+
+    const pipeline = new ReplicationPipeline({
+      repository,
+      analyzer: {
+        async analyze() {
+          return {
+            sourceUrl: "https://example.com",
+            referenceHost: "example.com",
+            pageType: "homepage",
+            title: "Example Storefront",
+            summary: "Prepared deterministic homepage analysis for Example Storefront.",
+            analyzedAt: "2026-03-20T12:01:00.000Z",
+            recommendedSections: ["hero", "rich_text", "cta"]
+          } satisfies ReferenceAnalysis;
+        }
+      },
+      mapper: {
+        async map() {
+          return {
+            sourceUrl: "https://example.com",
+            title: "Example Storefront",
+            summary: "Mapped Example Storefront into the stable generated homepage template.",
+            mappedAt: "2026-03-20T12:02:00.000Z",
+            templatePath: "templates/index.generated-reference.json",
+            sectionPath: "sections/generated-homepage-reference.liquid",
+            sections: [
+              {
+                id: "hero-1",
+                type: "hero",
+                heading: "Example Storefront",
+                body: "Homepage copy"
+              }
+            ]
+          } satisfies ThemeMapping;
+        }
+      },
+      generator: new ShopifyThemeGenerator(themeRoot),
+      storeSetupGenerator: new ShopifyStoreSetupGenerator(themeRoot),
+      commerceGenerator: {
+        async generate() {
+          throw new Error("Commerce wiring generation failed");
+        }
+      },
+      themeValidator: {
+        async validate() {
+          return {
+            status: "passed",
+            summary: "Theme check passed.",
+            checkedAt: "2026-03-20T12:03:00.000Z"
+          } satisfies ThemeCheckResult;
+        }
+      }
+    });
+
+    await pipeline.process(job.id);
+
+    await expect(repository.getById(job.id)).resolves.toMatchObject({
+      id: job.id,
+      status: "failed",
+      currentStage: "commerce_wiring",
+      error: {
+        stage: "commerce_wiring",
+        message: "Commerce wiring generation failed"
+      },
+      artifacts: expect.arrayContaining([
+        expect.objectContaining({
+          kind: "section",
+          status: "generated"
+        }),
+        expect.objectContaining({
+          kind: "template",
+          status: "generated"
+        }),
+        expect.objectContaining({
+          kind: "config",
+          status: "generated"
+        }),
+        expect.objectContaining({
+          kind: "snippet",
           status: "failed"
         })
       ])

@@ -49,12 +49,19 @@ describe("createReplicationJob", () => {
         path: "config/generated-store-setup.json",
         status: "pending",
         description: "Deterministic store setup plan covering products, collections, menus, and structured content"
+      },
+      {
+        kind: "snippet",
+        path: "snippets/generated-commerce-wiring.liquid",
+        status: "pending",
+        description: "Deterministic commerce wiring snippet covering cart entrypoints and native checkout handoff"
       }
     ]);
     expect(job.analysis).toBeUndefined();
     expect(job.mapping).toBeUndefined();
     expect(job.generation).toBeUndefined();
     expect(job.storeSetup).toBeUndefined();
+    expect(job.commerce).toBeUndefined();
     expect(job.validation).toEqual({
       status: "pending",
       summary: "Theme validation has not run yet."
@@ -100,6 +107,12 @@ describe("createReplicationJob", () => {
         path: "config/generated-store-setup.json",
         status: "pending",
         description: "Deterministic store setup plan covering products, collections, menus, and structured content"
+      },
+      {
+        kind: "snippet",
+        path: "snippets/generated-commerce-wiring.liquid",
+        status: "pending",
+        description: "Deterministic commerce wiring snippet covering cart entrypoints and native checkout handoff"
       }
     ]);
   });

@@ -1,4 +1,5 @@
 import type {
+  CommerceWiringPlan,
   PageType,
   PipelineStage,
   ReferenceAnalysis,
@@ -42,12 +43,24 @@ type StoreSetupGenerator = {
   }>;
 };
 
+type CommerceGenerator = {
+  generate(input: {
+    analysis: ReferenceAnalysis;
+    mapping: ThemeMapping;
+    storeSetup: StoreSetupPlan;
+  }): Promise<{
+    artifact: ReplicationJob["artifacts"][number];
+    commerce: CommerceWiringPlan;
+  }>;
+};
+
 type ReplicationPipelineOptions = {
   repository: JobRepository;
   analyzer: Analyzer;
   mapper: Mapper;
   generator: Generator;
   storeSetupGenerator: StoreSetupGenerator;
+  commerceGenerator: CommerceGenerator;
   themeValidator: ThemeValidator;
 };
 
@@ -102,6 +115,7 @@ export class ReplicationPipeline {
   readonly #mapper: Mapper;
   readonly #generator: Generator;
   readonly #storeSetupGenerator: StoreSetupGenerator;
+  readonly #commerceGenerator: CommerceGenerator;
   readonly #themeValidator: ThemeValidator;
 
   constructor(options: ReplicationPipelineOptions) {
@@ -110,6 +124,7 @@ export class ReplicationPipeline {
     this.#mapper = options.mapper;
     this.#generator = options.generator;
     this.#storeSetupGenerator = options.storeSetupGenerator;
+    this.#commerceGenerator = options.commerceGenerator;
     this.#themeValidator = options.themeValidator;
   }
 
@@ -169,14 +184,28 @@ export class ReplicationPipeline {
         existingArtifact.path === artifact.path ? artifact : existingArtifact
       );
       completeStage(job, "store_setup", storeSetup.plannedAt, "Deterministic store setup plan is ready for operator review.");
+      startStage(job, "commerce_wiring", storeSetup.plannedAt, "Preparing deterministic commerce wiring.");
+      job.updatedAt = storeSetup.plannedAt;
+      await this.#repository.save(job);
+
+      const { artifact: commerceArtifact, commerce } = await this.#commerceGenerator.generate({
+        analysis,
+        mapping,
+        storeSetup
+      });
+      job.commerce = commerce;
+      job.artifacts = job.artifacts.map((existingArtifact) =>
+        existingArtifact.path === commerceArtifact.path ? commerceArtifact : existingArtifact
+      );
+      completeStage(job, "commerce_wiring", commerce.plannedAt, "Deterministic commerce wiring is ready for operator review.");
       startStage(
         job,
         "review",
-        storeSetup.plannedAt,
-        "Generated theme files and store setup plan are ready for operator QA."
+        commerce.plannedAt,
+        "Generated theme files, store setup plan, and commerce wiring are ready for operator QA."
       );
       job.status = "needs_review";
-      job.updatedAt = storeSetup.plannedAt;
+      job.updatedAt = commerce.plannedAt;
       await this.#repository.save(job);
     } catch (error) {
       const message =
@@ -203,6 +232,14 @@ export class ReplicationPipeline {
       if (job.currentStage === "store_setup") {
         job.artifacts = job.artifacts.map((artifact) =>
           artifact.kind === "config" && artifact.status !== "generated"
+            ? { ...artifact, status: "failed" }
+            : artifact
+        );
+      }
+
+      if (job.currentStage === "commerce_wiring") {
+        job.artifacts = job.artifacts.map((artifact) =>
+          artifact.kind === "snippet" && artifact.status !== "generated"
             ? { ...artifact, status: "failed" }
             : artifact
         );

@@ -78,6 +78,9 @@ describe("ShopifyThemeGenerator", () => {
     await expect(readFile(join(themeRoot, "sections/generated-reference.liquid"), "utf8")).resolves.toContain(
       "Mapped Example Store into the stable generated reference section."
     );
+    await expect(readFile(join(themeRoot, "sections/generated-reference.liquid"), "utf8")).resolves.toContain(
+      "{% render 'generated-commerce-wiring', page_type: 'landing_page' %}"
+    );
     await expect(readFile(join(themeRoot, "templates/page.generated-reference.json"), "utf8")).resolves.toContain(
       '"type": "generated-reference"'
     );

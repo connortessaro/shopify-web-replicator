@@ -180,12 +180,41 @@ export function HandoffPage({ loadJob, loadRuntime }: HandoffPageProps) {
         </div>
       ) : null}
 
+      {job.commerce ? (
+        <div className="stack">
+          <h2>Commerce wiring</h2>
+          <p>{job.commerce.summary}</p>
+          <p>Snippet path: {job.commerce.snippetPath}</p>
+          <p>Cart path: {job.commerce.cartPath}</p>
+          <p>Checkout path: {job.commerce.checkoutPath}</p>
+          <ul className="artifact-list">
+            {job.commerce.entrypoints.map((entrypoint) => (
+              <li key={`${entrypoint.label}-${entrypoint.target}`}>
+                <div className="artifact-details">
+                  <strong>{entrypoint.label}</strong>
+                  <span>{entrypoint.target}</span>
+                  <span>{entrypoint.behavior}</span>
+                </div>
+              </li>
+            ))}
+            {job.commerce.qaChecklist.map((check) => (
+              <li key={check}>
+                <div className="artifact-details">
+                  <strong>{check}</strong>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="stack">
         <h2>Operator checklist</h2>
         <ul className="checklist">
           <li>Confirm the generated layout matches the reference intent closely enough for QA.</li>
           <li>Verify content blocks and calls to action are mapped to the right section structure.</li>
           <li>Review the generated products, collections, menus, and structured content plan before store setup.</li>
+          <li>Review the commerce wiring snippet, cart path, and checkout handoff before publish.</li>
           <li>Run the preview command and check cart to native Shopify checkout handoff.</li>
         </ul>
       </div>

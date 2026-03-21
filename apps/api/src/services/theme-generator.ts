@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
 import {
+  stableCommerceArtifact,
   pageTypeLabels,
   stableThemeArtifacts,
   type GeneratedThemeArtifact,
@@ -35,6 +36,14 @@ function schemaNameForPageType(pageType: ReferenceAnalysis["pageType"]): string 
   return "Generated landing";
 }
 
+function renderCommerceWiringSnippet(pageType: ReferenceAnalysis["pageType"]): string {
+  const snippetType = basename(stableCommerceArtifact.path, ".liquid");
+
+  return `
+    {% render '${snippetType}', page_type: '${pageType}' %}
+`;
+}
+
 function renderMarketingSection(
   sectionType: string,
   analysis: ReferenceAnalysis,
@@ -63,6 +72,8 @@ function renderMarketingSection(
         {{ section.settings.cta_label }}
       </a>
     {% endif %}
+
+${renderCommerceWiringSnippet(analysis.pageType)}
   </div>
 </section>
 
@@ -199,6 +210,8 @@ function renderProductSection(sectionType: string, analysis: ReferenceAnalysis, 
     {% else %}
       <p class="${sectionType}__empty">Connect this template to a product to validate the generated purchase flow.</p>
     {% endif %}
+
+${renderCommerceWiringSnippet(analysis.pageType)}
   </div>
 </section>
 
@@ -308,6 +321,8 @@ function renderCollectionSection(sectionType: string, analysis: ReferenceAnalysi
         <p class="${sectionType}__empty">Connect this template to a collection to validate the generated browsing flow.</p>
       {% endfor %}
     </div>
+
+${renderCommerceWiringSnippet(analysis.pageType)}
   </div>
 </section>
 
