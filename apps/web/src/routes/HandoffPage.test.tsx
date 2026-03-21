@@ -9,6 +9,6 @@ describe("HandoffPage", () => {
 
     expect(screen.getByText(/packages\/theme-workspace/i)).toBeInTheDocument();
     expect(screen.getByText(/shopify theme dev/i)).toBeInTheDocument();
-    expect(screen.getByText(/generated sections and templates land here/i)).toBeInTheDocument();
+    expect(screen.getByText(/deterministic pipeline overwrites the stable generated reference section/i)).toBeInTheDocument();
   });
 });

@@ -1,8 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { SqliteJobRepository } from "./repository/sqlite-job-repository";
 import { createApp } from "./app";
 
 describe("createApp", () => {
+  const tempDirectories: string[] = [];
+
+  afterEach(async () => {
+    await Promise.all(tempDirectories.map((directory) => rm(directory, { recursive: true, force: true })));
+    tempDirectories.length = 0;
+  });
+
   it("returns a health payload", async () => {
     const app = createApp();
 
@@ -12,8 +24,16 @@ describe("createApp", () => {
     await expect(response.json()).resolves.toEqual({ status: "ok" });
   });
 
-  it("creates a replication job from the intake payload", async () => {
-    const app = createApp();
+  it("creates a replication job, persists it, and enqueues background processing", async () => {
+    const dataRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-api-"));
+    tempDirectories.push(dataRoot);
+
+    const repository = new SqliteJobRepository(join(dataRoot, "replicator.db"));
+    const enqueueJob = vi.fn().mockResolvedValue(undefined);
+    const app = createApp({
+      repository,
+      enqueueJob
+    });
 
     const response = await app.request("/api/jobs", {
       method: "POST",
@@ -27,14 +47,32 @@ describe("createApp", () => {
     });
 
     expect(response.status).toBe(201);
-    await expect(response.json()).resolves.toMatchObject({
-      currentStage: "intake",
+
+    const created = await response.json();
+
+    expect(created).toMatchObject({
+      currentStage: "analysis",
       status: "in_progress"
+    });
+    expect(enqueueJob).toHaveBeenCalledWith(created.jobId);
+    await expect(repository.getById(created.jobId)).resolves.toMatchObject({
+      id: created.jobId,
+      intake: {
+        referenceUrl: "https://example.com",
+        notes: "mobile-first PDP"
+      }
     });
   });
 
   it("returns a stored replication job by id", async () => {
-    const app = createApp();
+    const dataRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-api-"));
+    tempDirectories.push(dataRoot);
+
+    const repository = new SqliteJobRepository(join(dataRoot, "replicator.db"));
+    const app = createApp({
+      repository,
+      enqueueJob: async () => undefined
+    });
 
     const createResponse = await app.request("/api/jobs", {
       method: "POST",
@@ -60,6 +98,32 @@ describe("createApp", () => {
     });
   });
 
+  it("returns validation issues for invalid intake payloads", async () => {
+    const dataRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-api-"));
+    tempDirectories.push(dataRoot);
+
+    const repository = new SqliteJobRepository(join(dataRoot, "replicator.db"));
+    const app = createApp({
+      repository,
+      enqueueJob: async () => undefined
+    });
+
+    const response = await app.request("/api/jobs", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        referenceUrl: "not-a-url"
+      })
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Invalid intake payload"
+    });
+  });
+
   it("returns 404 for an unknown replication job id", async () => {
     const app = createApp();
 
@@ -71,4 +135,3 @@ describe("createApp", () => {
     });
   });
 });
-

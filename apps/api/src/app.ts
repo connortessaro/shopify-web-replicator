@@ -6,7 +6,14 @@ import { createReplicationJob, referenceIntakeSchema } from "@shopify-web-replic
 
 import { InMemoryJobRepository, type JobRepository } from "./repository/in-memory-job-repository.js";
 
-export function createApp(repository: JobRepository = new InMemoryJobRepository()) {
+type CreateAppOptions = {
+  repository?: JobRepository;
+  enqueueJob?: (jobId: string) => Promise<void> | void;
+};
+
+export function createApp(options: CreateAppOptions = {}) {
+  const repository = options.repository ?? new InMemoryJobRepository();
+  const enqueueJob = options.enqueueJob ?? (async () => undefined);
   const app = new Hono();
 
   app.use("*", cors());
@@ -19,7 +26,13 @@ export function createApp(repository: JobRepository = new InMemoryJobRepository(
     try {
       const payload = await context.req.json();
       const intake = referenceIntakeSchema.parse(payload);
-      const job = repository.save(createReplicationJob(intake));
+      const job = await repository.save(createReplicationJob(intake));
+
+      queueMicrotask(() => {
+        void Promise.resolve(enqueueJob(job.id)).catch((error) => {
+          console.error("Failed to enqueue replication job", error);
+        });
+      });
 
       return context.json(
         {
@@ -41,12 +54,21 @@ export function createApp(repository: JobRepository = new InMemoryJobRepository(
         );
       }
 
+      if (error instanceof Error) {
+        return context.json(
+          {
+            error: error.message
+          },
+          400
+        );
+      }
+
       throw error;
     }
   });
 
-  app.get("/api/jobs/:jobId", (context) => {
-    const job = repository.getById(context.req.param("jobId"));
+  app.get("/api/jobs/:jobId", async (context) => {
+    const job = await repository.getById(context.req.param("jobId"));
 
     if (!job) {
       return context.json({ error: "Job not found" }, 404);

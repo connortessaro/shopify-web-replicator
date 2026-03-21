@@ -154,6 +154,19 @@ a {
   color: #a12c1e;
 }
 
+.job-alert {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  background: rgba(161, 44, 30, 0.08);
+}
+
+.job-alert--error {
+  color: #7d2016;
+}
+
 .stage-list,
 .artifact-list {
   display: grid;
@@ -177,6 +190,10 @@ a {
   background: #dff4af;
 }
 
+.stage-card--failed {
+  background: rgba(161, 44, 30, 0.12);
+}
+
 .stage-name {
   font-weight: 700;
 }
@@ -185,12 +202,30 @@ a {
   color: #335144;
 }
 
+.stage-summary,
+.stage-time,
+.stage-error {
+  margin: 0.45rem 0 0;
+  font-size: 0.92rem;
+}
+
+.stage-error {
+  color: #7d2016;
+}
+
 .artifact-list li {
   display: flex;
-  justify-content: space-between;
+  align-items: flex-start;
   gap: 1rem;
   padding-bottom: 0.8rem;
   border-bottom: 1px solid rgba(16, 35, 26, 0.08);
+}
+
+.artifact-details {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.2rem;
 }
 
 .secondary-link {
