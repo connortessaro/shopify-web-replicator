@@ -108,7 +108,7 @@ export function HandoffPage({ loadJob, loadRuntime }: HandoffPageProps) {
         </div>
         <div>
           <dt>Review expectation</dt>
-          <dd>Check layout parity, content wiring, CTA behavior, and native cart to checkout handoff.</dd>
+          <dd>Check layout parity, content wiring, store setup scope, and native cart to checkout handoff.</dd>
         </div>
       </dl>
 
@@ -134,11 +134,58 @@ export function HandoffPage({ loadJob, loadRuntime }: HandoffPageProps) {
         {job.validation.output ? <pre className="validation-output">{job.validation.output}</pre> : null}
       </div>
 
+      {job.storeSetup ? (
+        <div className="stack">
+          <h2>Store setup plan</h2>
+          <p>{job.storeSetup.summary}</p>
+          <p>Config path: {job.storeSetup.configPath}</p>
+          <ul className="artifact-list">
+            {job.storeSetup.products.map((product) => (
+              <li key={product.handle}>
+                <div className="artifact-details">
+                  <strong>{product.handle}</strong>
+                  <span>{product.title}</span>
+                  <span>{product.merchandisingRole}</span>
+                </div>
+              </li>
+            ))}
+            {job.storeSetup.collections.map((collection) => (
+              <li key={collection.handle}>
+                <div className="artifact-details">
+                  <strong>{collection.handle}</strong>
+                  <span>{collection.title}</span>
+                  <span>{collection.rule}</span>
+                </div>
+              </li>
+            ))}
+            {job.storeSetup.menus.map((menu) => (
+              <li key={menu.handle}>
+                <div className="artifact-details">
+                  <strong>{menu.handle}</strong>
+                  <span>{menu.title}</span>
+                  <span>{menu.items.map((item) => `${item.title} -> ${item.target}`).join(" | ")}</span>
+                </div>
+              </li>
+            ))}
+            {job.storeSetup.contentModels.map((model) => (
+              <li key={model.name}>
+                <div className="artifact-details">
+                  <strong>{model.name}</strong>
+                  <span>{model.type}</span>
+                  <span>{model.fields.join(", ")}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="stack">
         <h2>Operator checklist</h2>
         <ul className="checklist">
           <li>Confirm the generated layout matches the reference intent closely enough for QA.</li>
           <li>Verify content blocks and calls to action are mapped to the right section structure.</li>
+          <li>Review the generated products, collections, menus, and structured content plan before store setup.</li>
           <li>Run the preview command and check cart to native Shopify checkout handoff.</li>
         </ul>
       </div>

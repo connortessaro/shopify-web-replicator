@@ -4,6 +4,7 @@ import { SqliteJobRepository } from "./repository/sqlite-job-repository.js";
 import { getDefaultRuntimeConfig } from "./runtime.js";
 import { DeterministicPageAnalyzer } from "./services/page-analyzer.js";
 import { ReplicationPipeline } from "./services/replication-pipeline.js";
+import { ShopifyStoreSetupGenerator } from "./services/store-setup-generator.js";
 import { DeterministicThemeMapper } from "./services/theme-mapper.js";
 import { ShopifyThemeGenerator } from "./services/theme-generator.js";
 import { ShopifyThemeValidator } from "./services/theme-validator.js";
@@ -15,6 +16,7 @@ const pipeline = new ReplicationPipeline({
   analyzer: new DeterministicPageAnalyzer(),
   mapper: new DeterministicThemeMapper(),
   generator: new ShopifyThemeGenerator(runtime.themeWorkspacePath),
+  storeSetupGenerator: new ShopifyStoreSetupGenerator(runtime.themeWorkspacePath),
   themeValidator: new ShopifyThemeValidator(runtime.themeWorkspacePath)
 });
 const app = createApp({

@@ -45,10 +45,17 @@ function createJob(overrides: Partial<ReplicationJob> = {}): ReplicationJob {
         completedAt: "2026-03-20T12:03:00.000Z"
       },
       {
+        name: "store_setup",
+        status: "complete",
+        summary: "Deterministic store setup plan is ready for operator review.",
+        startedAt: "2026-03-20T12:03:00.000Z",
+        completedAt: "2026-03-20T12:04:00.000Z"
+      },
+      {
         name: "review",
         status: "current",
-        summary: "Generated theme files are ready for operator QA.",
-        startedAt: "2026-03-20T12:03:00.000Z"
+        summary: "Generated theme files and store setup plan are ready for operator QA.",
+        startedAt: "2026-03-20T12:04:00.000Z"
       }
     ],
     artifacts: [
@@ -65,6 +72,13 @@ function createJob(overrides: Partial<ReplicationJob> = {}): ReplicationJob {
         status: "generated",
         description: "Generated JSON template that references the stable landing section",
         lastWrittenAt: "2026-03-20T12:03:00.000Z"
+      },
+      {
+        kind: "config",
+        path: "config/generated-store-setup.json",
+        status: "generated",
+        description: "Deterministic store setup plan covering products, collections, menus, and structured content",
+        lastWrittenAt: "2026-03-20T12:04:00.000Z"
       }
     ],
     analysis: {
@@ -97,6 +111,45 @@ function createJob(overrides: Partial<ReplicationJob> = {}): ReplicationJob {
       templatePath: "templates/page.generated-reference.json",
       sectionPath: "sections/generated-reference.liquid"
     },
+    storeSetup: {
+      plannedAt: "2026-03-20T12:04:00.000Z",
+      configPath: "config/generated-store-setup.json",
+      summary: "Prepared deterministic store setup plan for Example Store.",
+      products: [
+        {
+          handle: "example-store-primary",
+          title: "Example Store Primary",
+          merchandisingRole: "Primary offer for the generated storefront."
+        }
+      ],
+      collections: [
+        {
+          handle: "example-store-featured",
+          title: "Example Store Featured",
+          rule: "Manual collection for generated review.",
+          featuredProductHandles: ["example-store-primary"]
+        }
+      ],
+      menus: [
+        {
+          handle: "main-menu",
+          title: "Main menu",
+          items: [
+            {
+              title: "Shop",
+              target: "/collections/example-store-featured"
+            }
+          ]
+        }
+      ],
+      contentModels: [
+        {
+          name: "feature_callout",
+          type: "metaobject",
+          fields: ["eyebrow", "heading", "body"]
+        }
+      ]
+    },
     validation: {
       status: "passed",
       summary: "Theme check passed.",
@@ -113,7 +166,7 @@ describe("JobDetailPage", () => {
     vi.useRealTimers();
   });
 
-  it("renders stage summaries, mapping details, validation, and generated artifacts", async () => {
+  it("renders stage summaries, mapping details, store setup, validation, and generated artifacts", async () => {
     const job = createJob();
     const loadJob = vi.fn().mockResolvedValue(job);
 
@@ -132,6 +185,8 @@ describe("JobDetailPage", () => {
     expect(await screen.findByText(/analysis summary/i)).toBeInTheDocument();
     expect(screen.getByText(/detected a hero-first landing page/i)).toBeInTheDocument();
     expect(screen.getByText(/mapped example store into the stable generated reference section/i)).toBeInTheDocument();
+    expect(screen.getByText(/prepared deterministic store setup plan for example store/i)).toBeInTheDocument();
+    expect(screen.getByText(/example-store-primary/i)).toBeInTheDocument();
     expect(screen.getByText(/theme check passed/i)).toBeInTheDocument();
     expect(screen.getByText(/primary generated landing section output/i)).toBeInTheDocument();
     expect(screen.getByText(/reference intake accepted/i)).toBeInTheDocument();
@@ -172,6 +227,11 @@ describe("JobDetailPage", () => {
           summary: "Waiting for theme generation."
         },
         {
+          name: "store_setup",
+          status: "pending",
+          summary: "Waiting for store setup."
+        },
+        {
           name: "review",
           status: "pending",
           summary: "Waiting for review."
@@ -204,9 +264,9 @@ describe("JobDetailPage", () => {
     await waitFor(() => {
       expect(loadJob).toHaveBeenCalledTimes(2);
     });
-    expect((await screen.findAllByText(/generated theme files are ready for operator qa/i)).length).toBeGreaterThan(
-      0
-    );
+    expect(
+      (await screen.findAllByText(/generated theme files and store setup plan are ready for operator qa/i)).length
+    ).toBeGreaterThan(0);
   });
 
   it("renders a failed state when the job includes a pipeline error", async () => {

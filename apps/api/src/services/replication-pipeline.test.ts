@@ -14,6 +14,7 @@ import {
 import { SqliteJobRepository } from "../repository/sqlite-job-repository";
 
 import { ReplicationPipeline } from "./replication-pipeline";
+import { ShopifyStoreSetupGenerator } from "./store-setup-generator";
 import { ShopifyThemeGenerator } from "./theme-generator";
 
 describe("ReplicationPipeline", () => {
@@ -24,7 +25,7 @@ describe("ReplicationPipeline", () => {
     tempDirectories.length = 0;
   });
 
-  it("processes a job from capture through theme generation and validation", async () => {
+  it("processes a job from analysis through theme generation, store setup, and validation", async () => {
     const dataRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-jobs-"));
     const themeRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-theme-"));
     tempDirectories.push(dataRoot, themeRoot);
@@ -78,6 +79,7 @@ describe("ReplicationPipeline", () => {
         }
       },
       generator: new ShopifyThemeGenerator(themeRoot),
+      storeSetupGenerator: new ShopifyStoreSetupGenerator(themeRoot),
       themeValidator: {
         async validate() {
           return {
@@ -103,6 +105,10 @@ describe("ReplicationPipeline", () => {
       mapping: {
         summary: "Mapped Example Storefront into the stable generated reference section. Operator notes: Landing page MVP"
       },
+      storeSetup: {
+        summary:
+          "Prepared deterministic store setup plan for Example Storefront covering products, collections, menus, and structured content for the landing page."
+      },
       validation: {
         status: "passed"
       }
@@ -118,6 +124,11 @@ describe("ReplicationPipeline", () => {
           kind: "template",
           path: "templates/page.generated-reference.json",
           status: "generated"
+        }),
+        expect.objectContaining({
+          kind: "config",
+          path: "config/generated-store-setup.json",
+          status: "generated"
         })
       ])
     );
@@ -127,6 +138,9 @@ describe("ReplicationPipeline", () => {
     await expect(
       readFile(join(themeRoot, "templates/page.generated-reference.json"), "utf8")
     ).resolves.toContain('"type": "generated-reference"');
+    await expect(readFile(join(themeRoot, "config/generated-store-setup.json"), "utf8")).resolves.toContain(
+      "\"example-storefront\""
+    );
   });
 
   it("persists a failed job when a stage throws", async () => {
@@ -161,6 +175,11 @@ describe("ReplicationPipeline", () => {
         }
       },
       generator: new ShopifyThemeGenerator(themeRoot),
+      storeSetupGenerator: {
+        async generate() {
+          throw new Error("Should never run");
+        }
+      },
       themeValidator: {
         async validate() {
           return {
@@ -184,6 +203,98 @@ describe("ReplicationPipeline", () => {
       validation: {
         status: "pending"
       }
+    });
+  });
+
+  it("persists a failed job when store setup generation throws", async () => {
+    const dataRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-jobs-"));
+    const themeRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-theme-"));
+    tempDirectories.push(dataRoot, themeRoot);
+
+    const repository = new SqliteJobRepository(join(dataRoot, "replicator.db"));
+    const job = createReplicationJob({
+      referenceUrl: "https://example.com/products/trail-pack",
+      pageType: "product_page"
+    });
+
+    await repository.save(job);
+
+    const pipeline = new ReplicationPipeline({
+      repository,
+      analyzer: {
+        async analyze() {
+          return {
+            sourceUrl: "https://example.com/products/trail-pack",
+            referenceHost: "example.com",
+            pageType: "product_page",
+            title: "Trail Pack",
+            summary: "Prepared deterministic product page analysis for Trail Pack.",
+            analyzedAt: "2026-03-20T12:01:00.000Z",
+            recommendedSections: ["product_detail", "rich_text", "cta"]
+          } satisfies ReferenceAnalysis;
+        }
+      },
+      mapper: {
+        async map() {
+          return {
+            sourceUrl: "https://example.com/products/trail-pack",
+            title: "Trail Pack",
+            summary: "Mapped Trail Pack into the stable generated product template.",
+            mappedAt: "2026-03-20T12:02:00.000Z",
+            templatePath: "templates/product.generated-reference.json",
+            sectionPath: "sections/generated-product-reference.liquid",
+            sections: [
+              {
+                id: "product-detail-1",
+                type: "product_detail",
+                heading: "Trail Pack",
+                body: "Product detail copy"
+              }
+            ]
+          } satisfies ThemeMapping;
+        }
+      },
+      generator: new ShopifyThemeGenerator(themeRoot),
+      storeSetupGenerator: {
+        async generate() {
+          throw new Error("Store setup generation failed");
+        }
+      },
+      themeValidator: {
+        async validate() {
+          return {
+            status: "passed",
+            summary: "Theme check passed.",
+            checkedAt: "2026-03-20T12:03:00.000Z"
+          } satisfies ThemeCheckResult;
+        }
+      }
+    });
+
+    await pipeline.process(job.id);
+
+    await expect(repository.getById(job.id)).resolves.toMatchObject({
+      id: job.id,
+      status: "failed",
+      currentStage: "store_setup",
+      error: {
+        stage: "store_setup",
+        message: "Store setup generation failed"
+      },
+      artifacts: expect.arrayContaining([
+        expect.objectContaining({
+          kind: "section",
+          status: "generated"
+        }),
+        expect.objectContaining({
+          kind: "template",
+          status: "generated"
+        }),
+        expect.objectContaining({
+          kind: "config",
+          status: "failed"
+        })
+      ])
     });
   });
 });

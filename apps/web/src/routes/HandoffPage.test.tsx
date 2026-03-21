@@ -21,8 +21,47 @@ describe("HandoffPage", () => {
           status: "generated",
           description: "Primary generated landing section output",
           lastWrittenAt: "2026-03-20T12:03:00.000Z"
+        },
+        {
+          kind: "config",
+          path: "config/generated-store-setup.json",
+          status: "generated",
+          description: "Deterministic store setup plan covering products, collections, menus, and structured content",
+          lastWrittenAt: "2026-03-20T12:04:00.000Z"
         }
       ],
+      storeSetup: {
+        plannedAt: "2026-03-20T12:04:00.000Z",
+        configPath: "config/generated-store-setup.json",
+        summary: "Prepared deterministic store setup plan for Example Storefront.",
+        products: [
+          {
+            handle: "example-storefront-primary",
+            title: "Example Storefront Primary",
+            merchandisingRole: "Primary offer for the generated storefront."
+          }
+        ],
+        collections: [],
+        menus: [
+          {
+            handle: "main-menu",
+            title: "Main menu",
+            items: [
+              {
+                title: "Shop",
+                target: "/collections/example-storefront-featured"
+              }
+            ]
+          }
+        ],
+        contentModels: [
+          {
+            name: "feature_callout",
+            type: "metaobject",
+            fields: ["eyebrow", "heading", "body"]
+          }
+        ]
+      },
       validation: {
         status: "passed",
         summary: "Theme check passed.",
@@ -55,5 +94,7 @@ describe("HandoffPage", () => {
     expect(screen.getByText(/shopify theme dev/i)).toBeInTheDocument();
     expect(screen.getByText(/no theme issues detected/i)).toBeInTheDocument();
     expect(screen.getByText(/sections\/generated-reference\.liquid/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/config\/generated-store-setup\.json/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/example-storefront-primary/i)).toBeInTheDocument();
   });
 });

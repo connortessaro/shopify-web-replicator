@@ -3,6 +3,7 @@ import type {
   PipelineStage,
   ReferenceAnalysis,
   ReplicationJob,
+  StoreSetupPlan,
   ThemeCheckResult,
   ThemeMapping
 } from "@shopify-web-replicator/shared";
@@ -31,11 +32,22 @@ type ThemeValidator = {
   validate(): Promise<ThemeCheckResult>;
 };
 
+type StoreSetupGenerator = {
+  generate(input: {
+    analysis: ReferenceAnalysis;
+    mapping: ThemeMapping;
+  }): Promise<{
+    artifact: ReplicationJob["artifacts"][number];
+    storeSetup: StoreSetupPlan;
+  }>;
+};
+
 type ReplicationPipelineOptions = {
   repository: JobRepository;
   analyzer: Analyzer;
   mapper: Mapper;
   generator: Generator;
+  storeSetupGenerator: StoreSetupGenerator;
   themeValidator: ThemeValidator;
 };
 
@@ -89,6 +101,7 @@ export class ReplicationPipeline {
   readonly #analyzer: Analyzer;
   readonly #mapper: Mapper;
   readonly #generator: Generator;
+  readonly #storeSetupGenerator: StoreSetupGenerator;
   readonly #themeValidator: ThemeValidator;
 
   constructor(options: ReplicationPipelineOptions) {
@@ -96,6 +109,7 @@ export class ReplicationPipeline {
     this.#analyzer = options.analyzer;
     this.#mapper = options.mapper;
     this.#generator = options.generator;
+    this.#storeSetupGenerator = options.storeSetupGenerator;
     this.#themeValidator = options.themeValidator;
   }
 
@@ -130,7 +144,10 @@ export class ReplicationPipeline {
       await this.#repository.save(job);
 
       const { artifacts, generation } = await this.#generator.generate({ analysis, mapping });
-      job.artifacts = artifacts;
+      job.artifacts = job.artifacts.map((existingArtifact) => {
+        const generatedArtifact = artifacts.find((artifact) => artifact.path === existingArtifact.path);
+        return generatedArtifact ?? existingArtifact;
+      });
       job.generation = generation;
 
       const validation = await this.#themeValidator.validate();
@@ -140,11 +157,26 @@ export class ReplicationPipeline {
         throw new Error(validation.summary);
       }
 
-      const reviewTimestamp = validation.checkedAt ?? generation.generatedAt;
-      completeStage(job, "theme_generation", reviewTimestamp, "Stable theme outputs generated successfully.");
-      startStage(job, "review", reviewTimestamp, "Generated theme files are ready for operator QA.");
+      const storeSetupTimestamp = validation.checkedAt ?? generation.generatedAt;
+      completeStage(job, "theme_generation", storeSetupTimestamp, "Stable theme outputs generated successfully.");
+      startStage(job, "store_setup", storeSetupTimestamp, "Preparing deterministic store setup plan.");
+      job.updatedAt = storeSetupTimestamp;
+      await this.#repository.save(job);
+
+      const { artifact, storeSetup } = await this.#storeSetupGenerator.generate({ analysis, mapping });
+      job.storeSetup = storeSetup;
+      job.artifacts = job.artifacts.map((existingArtifact) =>
+        existingArtifact.path === artifact.path ? artifact : existingArtifact
+      );
+      completeStage(job, "store_setup", storeSetup.plannedAt, "Deterministic store setup plan is ready for operator review.");
+      startStage(
+        job,
+        "review",
+        storeSetup.plannedAt,
+        "Generated theme files and store setup plan are ready for operator QA."
+      );
       job.status = "needs_review";
-      job.updatedAt = reviewTimestamp;
+      job.updatedAt = storeSetup.plannedAt;
       await this.#repository.save(job);
     } catch (error) {
       const message =
@@ -160,7 +192,19 @@ export class ReplicationPipeline {
 
       if (job.currentStage === "theme_generation") {
         job.artifacts = job.artifacts.map((artifact) =>
-          artifact.status === "generated" ? artifact : { ...artifact, status: "failed" }
+          artifact.kind === "section" || artifact.kind === "template"
+            ? artifact.status === "generated"
+              ? artifact
+              : { ...artifact, status: "failed" }
+            : artifact
+        );
+      }
+
+      if (job.currentStage === "store_setup") {
+        job.artifacts = job.artifacts.map((artifact) =>
+          artifact.kind === "config" && artifact.status !== "generated"
+            ? { ...artifact, status: "failed" }
+            : artifact
         );
       }
 

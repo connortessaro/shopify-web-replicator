@@ -2,12 +2,12 @@
 
 ## Intent
 
-This repo separates the operator-facing tooling from the Shopify theme output so the generated storefront stays Shopify-native while the orchestration logic remains easier to evolve. The current implementation is a deterministic Milestone 2 pipeline that proves the operator loop end to end across multiple Shopify-native page types without live crawling.
+This repo separates the operator-facing tooling from the Shopify theme output so the generated storefront stays Shopify-native while the orchestration logic remains easier to evolve. The current implementation is a deterministic Milestone 3 planning pipeline that proves the operator loop end to end across multiple Shopify-native page types without live crawling.
 
 ## Boundaries
 
 - `apps/web` owns the operator experience.
-- `apps/api` owns job lifecycle, SQLite persistence, deterministic analysis, mapping, theme generation, and validation orchestration.
+- `apps/api` owns job lifecycle, SQLite persistence, deterministic analysis, mapping, theme generation, store setup planning, and validation orchestration.
 - `packages/shared` owns the contract between the web app and API.
 - `packages/theme-workspace` owns the Liquid storefront output that will later be previewed or pushed with Shopify CLI.
 
@@ -21,8 +21,9 @@ This repo separates the operator-facing tooling from the Shopify theme output so
 6. The mapping stage converts that summary into page-type-specific Shopify section and template intent.
 7. Theme generation overwrites stable outputs for the selected page type inside `packages/theme-workspace`, including alternate templates for homepage, product, collection, and landing references.
 8. Theme validation runs `shopify theme check` against the workspace.
-9. The operator dashboard polls until the job reaches `needs_review` or `failed`, then surfaces stage summaries, validation state, and a job-scoped handoff.
-10. The handoff page loads runtime config from the API so the displayed workspace path and preview command match the real environment.
+9. Store setup planning writes a stable `config/generated-store-setup.json` artifact and persists a typed plan for products, collections, menus, and structured content.
+10. The operator dashboard polls until the job reaches `needs_review` or `failed`, then surfaces stage summaries, validation state, generated artifacts, and store setup scope in a job-scoped handoff.
+11. The handoff page loads runtime config from the API so the displayed workspace path and preview command match the real environment.
 
 ## Runtime defaults
 
@@ -36,6 +37,18 @@ This repo separates the operator-facing tooling from the Shopify theme output so
 - `GET /api/jobs/:jobId` returns the full persisted job payload.
 - `GET /api/jobs?limit=<n>` returns recent job summaries for intake and shortcut flows.
 - `GET /api/runtime` returns the effective workspace path and preview command for handoff.
+
+## Stable generated outputs
+
+- `sections/generated-reference.liquid`
+- `sections/generated-homepage-reference.liquid`
+- `sections/generated-product-reference.liquid`
+- `sections/generated-collection-reference.liquid`
+- `templates/page.generated-reference.json`
+- `templates/index.generated-reference.json`
+- `templates/product.generated-reference.json`
+- `templates/collection.generated-reference.json`
+- `config/generated-store-setup.json`
 
 ## Supported deterministic page types
 

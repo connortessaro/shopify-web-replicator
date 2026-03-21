@@ -5,6 +5,7 @@ export const pipelineStages = [
   "analysis",
   "mapping",
   "theme_generation",
+  "store_setup",
   "review"
 ] as const;
 
@@ -47,6 +48,11 @@ export const stableThemeArtifacts = {
     sectionDescription: "Stable generated collection section output",
     templateDescription: "Generated collection template that references the stable collection section"
   }
+} as const;
+
+export const stableStoreSetupArtifact = {
+  path: "config/generated-store-setup.json",
+  description: "Deterministic store setup plan covering products, collections, menus, and structured content"
 } as const;
 
 export const pageTypeLabels = {
@@ -131,6 +137,46 @@ export interface GenerationResult {
   sectionPath: string;
 }
 
+export interface StoreSetupProductPlan {
+  handle: string;
+  title: string;
+  merchandisingRole: string;
+}
+
+export interface StoreSetupCollectionPlan {
+  handle: string;
+  title: string;
+  rule: string;
+  featuredProductHandles: string[];
+}
+
+export interface StoreSetupMenuItemPlan {
+  title: string;
+  target: string;
+}
+
+export interface StoreSetupMenuPlan {
+  handle: string;
+  title: string;
+  items: StoreSetupMenuItemPlan[];
+}
+
+export interface StoreSetupContentModelPlan {
+  name: string;
+  type: "metaobject" | "metafield_definition";
+  fields: string[];
+}
+
+export interface StoreSetupPlan {
+  plannedAt: string;
+  configPath: string;
+  summary: string;
+  products: StoreSetupProductPlan[];
+  collections: StoreSetupCollectionPlan[];
+  menus: StoreSetupMenuPlan[];
+  contentModels: StoreSetupContentModelPlan[];
+}
+
 export interface ThemeCheckResult {
   status: ValidationStatus;
   summary: string;
@@ -153,6 +199,7 @@ export interface ReplicationJob {
   analysis?: ReferenceAnalysis;
   mapping?: ThemeMapping;
   generation?: GenerationResult;
+  storeSetup?: StoreSetupPlan;
   validation: ThemeCheckResult;
   error?: JobError;
   createdAt: string;
@@ -195,6 +242,12 @@ function createPendingArtifacts(pageType: PageType): GeneratedThemeArtifact[] {
       path: artifacts.template,
       status: "pending",
       description: artifacts.templateDescription
+    },
+    {
+      kind: "config",
+      path: stableStoreSetupArtifact.path,
+      status: "pending",
+      description: stableStoreSetupArtifact.description
     }
   ];
 }

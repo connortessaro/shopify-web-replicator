@@ -149,6 +149,57 @@ export function JobDetailPage({ loadJob, refreshIntervalMs = 2_000 }: JobDetailP
         </div>
       ) : null}
 
+      {job.storeSetup ? (
+        <div className="panel stack">
+          <h2>Store setup plan</h2>
+          <p>{job.storeSetup.summary}</p>
+          <p className="lede">
+            Config path: <strong>{job.storeSetup.configPath}</strong>
+          </p>
+          <ul className="artifact-list">
+            {job.storeSetup.products.map((product) => (
+              <li key={product.handle}>
+                <span>product</span>
+                <div className="artifact-details">
+                  <strong>{product.handle}</strong>
+                  <span>{product.title}</span>
+                  <span>{product.merchandisingRole}</span>
+                </div>
+              </li>
+            ))}
+            {job.storeSetup.collections.map((collection) => (
+              <li key={collection.handle}>
+                <span>collection</span>
+                <div className="artifact-details">
+                  <strong>{collection.handle}</strong>
+                  <span>{collection.title}</span>
+                  <span>{collection.rule}</span>
+                </div>
+              </li>
+            ))}
+            {job.storeSetup.menus.map((menu) => (
+              <li key={menu.handle}>
+                <span>menu</span>
+                <div className="artifact-details">
+                  <strong>{menu.handle}</strong>
+                  <span>{menu.title}</span>
+                  <span>{menu.items.map((item) => `${item.title} -> ${item.target}`).join(" | ")}</span>
+                </div>
+              </li>
+            ))}
+            {job.storeSetup.contentModels.map((model) => (
+              <li key={model.name}>
+                <span>{model.type}</span>
+                <div className="artifact-details">
+                  <strong>{model.name}</strong>
+                  <span>{model.fields.join(", ")}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="panel stack">
         <h2>Theme validation</h2>
         <p>{job.validation.summary}</p>

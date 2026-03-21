@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createReplicationJob, pipelineStages } from "./job";
 
 describe("createReplicationJob", () => {
-  it("creates a job ready for deterministic analysis with stable pending theme artifacts", () => {
+  it("creates a job ready for deterministic analysis with stable pending theme and store setup artifacts", () => {
     const job = createReplicationJob({
       referenceUrl: "https://example.com",
       notes: "hero-focused landing page",
@@ -43,11 +43,18 @@ describe("createReplicationJob", () => {
         path: "templates/page.generated-reference.json",
         status: "pending",
         description: "Generated JSON template that references the stable landing section"
+      },
+      {
+        kind: "config",
+        path: "config/generated-store-setup.json",
+        status: "pending",
+        description: "Deterministic store setup plan covering products, collections, menus, and structured content"
       }
     ]);
     expect(job.analysis).toBeUndefined();
     expect(job.mapping).toBeUndefined();
     expect(job.generation).toBeUndefined();
+    expect(job.storeSetup).toBeUndefined();
     expect(job.validation).toEqual({
       status: "pending",
       summary: "Theme validation has not run yet."
@@ -87,6 +94,12 @@ describe("createReplicationJob", () => {
         path: "templates/product.generated-reference.json",
         status: "pending",
         description: "Generated product template that references the stable product section"
+      },
+      {
+        kind: "config",
+        path: "config/generated-store-setup.json",
+        status: "pending",
+        description: "Deterministic store setup plan covering products, collections, menus, and structured content"
       }
     ]);
   });
