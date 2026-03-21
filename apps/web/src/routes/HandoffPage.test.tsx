@@ -35,6 +35,13 @@ describe("HandoffPage", () => {
           status: "generated",
           description: "Deterministic commerce wiring snippet covering cart entrypoints and native checkout handoff",
           lastWrittenAt: "2026-03-20T12:05:00.000Z"
+        },
+        {
+          kind: "config",
+          path: "config/generated-integration-report.json",
+          status: "generated",
+          description: "Deterministic integration report covering theme, store setup, and commerce consistency",
+          lastWrittenAt: "2026-03-20T12:06:00.000Z"
         }
       ],
       storeSetup: {
@@ -87,6 +94,19 @@ describe("HandoffPage", () => {
           "Verify the cart uses native Shopify checkout handoff."
         ]
       },
+      integration: {
+        checkedAt: "2026-03-20T12:06:00.000Z",
+        reportPath: "config/generated-integration-report.json",
+        status: "passed",
+        summary: "All deterministic integration checks passed for Example Storefront.",
+        checks: [
+          {
+            id: "generated_artifacts",
+            status: "passed",
+            details: "Theme, store setup, and commerce artifacts are all generated."
+          }
+        ]
+      },
       validation: {
         status: "passed",
         summary: "Theme check passed.",
@@ -123,5 +143,7 @@ describe("HandoffPage", () => {
     expect(screen.getAllByText(/example-storefront-primary/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/snippets\/generated-commerce-wiring\.liquid/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/\/checkout/i)).toBeInTheDocument();
+    expect(screen.getByText(/all deterministic integration checks passed for example storefront/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/config\/generated-integration-report\.json/i).length).toBeGreaterThan(0);
   });
 });

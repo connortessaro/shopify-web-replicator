@@ -236,10 +236,39 @@ export function JobDetailPage({ loadJob, refreshIntervalMs = 2_000 }: JobDetailP
         </div>
       ) : null}
 
+      {job.integration ? (
+        <div className="panel stack">
+          <h2>Integration report</h2>
+          <p>{job.integration.summary}</p>
+          <p className="lede">
+            Report path: <strong>{job.integration.reportPath}</strong>
+          </p>
+          <p className="lede">
+            Integration status: <strong>{job.integration.status}</strong>
+          </p>
+          <p className="lede">
+            Checked at: <strong>{formatTimestamp(job.integration.checkedAt)}</strong>
+          </p>
+          <ul className="artifact-list">
+            {job.integration.checks.map((check) => (
+              <li key={check.id}>
+                <span>{check.status}</span>
+                <div className="artifact-details">
+                  <strong>{check.id}</strong>
+                  <span>{check.details}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="panel stack">
         <h2>Theme validation</h2>
         <p>{job.validation.summary}</p>
         <p className="lede">Validation status: {job.validation.status}</p>
+        <p className="lede">Checked at: {formatTimestamp(job.validation.checkedAt)}</p>
+        {job.validation.output ? <pre className="validation-output">{job.validation.output}</pre> : null}
       </div>
 
       <div className="panel">

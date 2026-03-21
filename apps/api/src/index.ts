@@ -3,6 +3,7 @@ import { createApp } from "./app.js";
 import { SqliteJobRepository } from "./repository/sqlite-job-repository.js";
 import { getDefaultRuntimeConfig } from "./runtime.js";
 import { ShopifyCommerceWiringGenerator } from "./services/commerce-wiring-generator.js";
+import { ShopifyIntegrationReportGenerator } from "./services/integration-report-generator.js";
 import { DeterministicPageAnalyzer } from "./services/page-analyzer.js";
 import { ReplicationPipeline } from "./services/replication-pipeline.js";
 import { ShopifyStoreSetupGenerator } from "./services/store-setup-generator.js";
@@ -19,6 +20,7 @@ const pipeline = new ReplicationPipeline({
   generator: new ShopifyThemeGenerator(runtime.themeWorkspacePath),
   storeSetupGenerator: new ShopifyStoreSetupGenerator(runtime.themeWorkspacePath),
   commerceGenerator: new ShopifyCommerceWiringGenerator(runtime.themeWorkspacePath),
+  integrationGenerator: new ShopifyIntegrationReportGenerator(runtime.themeWorkspacePath),
   themeValidator: new ShopifyThemeValidator(runtime.themeWorkspacePath)
 });
 const app = createApp({

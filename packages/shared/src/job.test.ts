@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createReplicationJob, pipelineStages } from "./job";
 
 describe("createReplicationJob", () => {
-  it("creates a job ready for deterministic analysis with stable pending theme and store setup artifacts", () => {
+  it("creates a job ready for deterministic analysis with stable pending theme, setup, commerce, and integration artifacts", () => {
     const job = createReplicationJob({
       referenceUrl: "https://example.com",
       notes: "hero-focused landing page",
@@ -55,6 +55,12 @@ describe("createReplicationJob", () => {
         path: "snippets/generated-commerce-wiring.liquid",
         status: "pending",
         description: "Deterministic commerce wiring snippet covering cart entrypoints and native checkout handoff"
+      },
+      {
+        kind: "config",
+        path: "config/generated-integration-report.json",
+        status: "pending",
+        description: "Deterministic integration report covering theme, store setup, and commerce consistency"
       }
     ]);
     expect(job.analysis).toBeUndefined();
@@ -62,6 +68,7 @@ describe("createReplicationJob", () => {
     expect(job.generation).toBeUndefined();
     expect(job.storeSetup).toBeUndefined();
     expect(job.commerce).toBeUndefined();
+    expect(job.integration).toBeUndefined();
     expect(job.validation).toEqual({
       status: "pending",
       summary: "Theme validation has not run yet."
@@ -113,6 +120,12 @@ describe("createReplicationJob", () => {
         path: "snippets/generated-commerce-wiring.liquid",
         status: "pending",
         description: "Deterministic commerce wiring snippet covering cart entrypoints and native checkout handoff"
+      },
+      {
+        kind: "config",
+        path: "config/generated-integration-report.json",
+        status: "pending",
+        description: "Deterministic integration report covering theme, store setup, and commerce consistency"
       }
     ]);
   });

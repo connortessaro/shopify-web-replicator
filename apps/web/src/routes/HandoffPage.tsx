@@ -108,7 +108,7 @@ export function HandoffPage({ loadJob, loadRuntime }: HandoffPageProps) {
         </div>
         <div>
           <dt>Review expectation</dt>
-          <dd>Check layout parity, content wiring, store setup scope, and native cart to checkout handoff.</dd>
+          <dd>Check layout parity, store setup scope, commerce wiring, and the integration report before preview or publish.</dd>
         </div>
       </dl>
 
@@ -208,6 +208,27 @@ export function HandoffPage({ loadJob, loadRuntime }: HandoffPageProps) {
         </div>
       ) : null}
 
+      {job.integration ? (
+        <div className="stack">
+          <h2>Integration report</h2>
+          <p>{job.integration.summary}</p>
+          <p>Report path: {job.integration.reportPath}</p>
+          <p>Integration status: {job.integration.status}</p>
+          <p>Checked at: {formatTimestamp(job.integration.checkedAt)}</p>
+          <ul className="artifact-list">
+            {job.integration.checks.map((check) => (
+              <li key={check.id}>
+                <div className="artifact-details">
+                  <strong>{check.id}</strong>
+                  <span>{check.status}</span>
+                  <span>{check.details}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="stack">
         <h2>Operator checklist</h2>
         <ul className="checklist">
@@ -215,6 +236,7 @@ export function HandoffPage({ loadJob, loadRuntime }: HandoffPageProps) {
           <li>Verify content blocks and calls to action are mapped to the right section structure.</li>
           <li>Review the generated products, collections, menus, and structured content plan before store setup.</li>
           <li>Review the commerce wiring snippet, cart path, and checkout handoff before publish.</li>
+          <li>Review the integration report and resolve any failed consistency checks before preview.</li>
           <li>Run the preview command and check cart to native Shopify checkout handoff.</li>
         </ul>
       </div>

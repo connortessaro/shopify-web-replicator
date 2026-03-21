@@ -15,6 +15,7 @@ import { SqliteJobRepository } from "../repository/sqlite-job-repository";
 
 import { ReplicationPipeline } from "./replication-pipeline";
 import { ShopifyCommerceWiringGenerator } from "./commerce-wiring-generator";
+import { ShopifyIntegrationReportGenerator } from "./integration-report-generator";
 import { ShopifyStoreSetupGenerator } from "./store-setup-generator";
 import { ShopifyThemeGenerator } from "./theme-generator";
 
@@ -26,7 +27,7 @@ describe("ReplicationPipeline", () => {
     tempDirectories.length = 0;
   });
 
-  it("processes a job from analysis through theme generation, store setup, commerce wiring, and validation", async () => {
+  it("processes a job from analysis through theme generation, store setup, commerce wiring, integration checks, and validation", async () => {
     const dataRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-jobs-"));
     const themeRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-theme-"));
     tempDirectories.push(dataRoot, themeRoot);
@@ -82,6 +83,7 @@ describe("ReplicationPipeline", () => {
       generator: new ShopifyThemeGenerator(themeRoot),
       storeSetupGenerator: new ShopifyStoreSetupGenerator(themeRoot),
       commerceGenerator: new ShopifyCommerceWiringGenerator(themeRoot),
+      integrationGenerator: new ShopifyIntegrationReportGenerator(themeRoot),
       themeValidator: {
         async validate() {
           return {
@@ -114,6 +116,9 @@ describe("ReplicationPipeline", () => {
       commerce: {
         summary: "Prepared deterministic commerce wiring plan for Example Storefront with native Shopify cart and checkout handoff."
       },
+      integration: {
+        summary: "All deterministic integration checks passed for Example Storefront."
+      },
       validation: {
         status: "passed"
       }
@@ -139,6 +144,11 @@ describe("ReplicationPipeline", () => {
           kind: "snippet",
           path: "snippets/generated-commerce-wiring.liquid",
           status: "generated"
+        }),
+        expect.objectContaining({
+          kind: "config",
+          path: "config/generated-integration-report.json",
+          status: "generated"
         })
       ])
     );
@@ -153,6 +163,9 @@ describe("ReplicationPipeline", () => {
     );
     await expect(readFile(join(themeRoot, "snippets/generated-commerce-wiring.liquid"), "utf8")).resolves.toContain(
       "/checkout"
+    );
+    await expect(readFile(join(themeRoot, "config/generated-integration-report.json"), "utf8")).resolves.toContain(
+      "\"commerce_snippet_reference\""
     );
   });
 
@@ -194,6 +207,11 @@ describe("ReplicationPipeline", () => {
         }
       },
       commerceGenerator: {
+        async generate() {
+          throw new Error("Should never run");
+        }
+      },
+      integrationGenerator: {
         async generate() {
           throw new Error("Should never run");
         }
@@ -279,6 +297,11 @@ describe("ReplicationPipeline", () => {
         }
       },
       commerceGenerator: {
+        async generate() {
+          throw new Error("Should never run");
+        }
+      },
+      integrationGenerator: {
         async generate() {
           throw new Error("Should never run");
         }
@@ -376,6 +399,11 @@ describe("ReplicationPipeline", () => {
           throw new Error("Commerce wiring generation failed");
         }
       },
+      integrationGenerator: {
+        async generate() {
+          throw new Error("Should never run");
+        }
+      },
       themeValidator: {
         async validate() {
           return {
@@ -413,6 +441,117 @@ describe("ReplicationPipeline", () => {
         expect.objectContaining({
           kind: "snippet",
           status: "failed"
+        })
+      ])
+    });
+  });
+
+  it("persists a failed job when integration checks fail", async () => {
+    const dataRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-jobs-"));
+    const themeRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-theme-"));
+    tempDirectories.push(dataRoot, themeRoot);
+
+    const repository = new SqliteJobRepository(join(dataRoot, "replicator.db"));
+    const job = createReplicationJob({
+      referenceUrl: "https://example.com",
+      pageType: "landing_page"
+    });
+
+    await repository.save(job);
+
+    const pipeline = new ReplicationPipeline({
+      repository,
+      analyzer: {
+        async analyze() {
+          return {
+            sourceUrl: "https://example.com",
+            referenceHost: "example.com",
+            pageType: "landing_page",
+            title: "Example Storefront",
+            summary: "Prepared deterministic landing page analysis for Example Storefront.",
+            analyzedAt: "2026-03-20T12:01:00.000Z",
+            recommendedSections: ["hero", "rich_text", "cta"]
+          } satisfies ReferenceAnalysis;
+        }
+      },
+      mapper: {
+        async map() {
+          return {
+            sourceUrl: "https://example.com",
+            title: "Example Storefront",
+            summary: "Mapped Example Storefront into the stable generated landing template.",
+            mappedAt: "2026-03-20T12:02:00.000Z",
+            templatePath: "templates/page.generated-reference.json",
+            sectionPath: "sections/generated-reference.liquid",
+            sections: [
+              {
+                id: "hero-1",
+                type: "hero",
+                heading: "Example Storefront",
+                body: "Landing copy"
+              }
+            ]
+          } satisfies ThemeMapping;
+        }
+      },
+      generator: new ShopifyThemeGenerator(themeRoot),
+      storeSetupGenerator: new ShopifyStoreSetupGenerator(themeRoot),
+      commerceGenerator: new ShopifyCommerceWiringGenerator(themeRoot),
+      integrationGenerator: {
+        async generate() {
+          return {
+            artifact: {
+              kind: "config",
+              path: "config/generated-integration-report.json",
+              status: "generated",
+              description: "Deterministic integration report covering theme, store setup, and commerce consistency",
+              lastWrittenAt: "2026-03-20T12:05:00.000Z"
+            },
+            integration: {
+              checkedAt: "2026-03-20T12:05:00.000Z",
+              reportPath: "config/generated-integration-report.json",
+              status: "failed",
+              summary: "Integration checks failed for Example Storefront.",
+              checks: [
+                {
+                  id: "commerce_snippet_reference",
+                  status: "failed",
+                  details: "Generated section is missing the commerce snippet render."
+                }
+              ]
+            }
+          };
+        }
+      },
+      themeValidator: {
+        async validate() {
+          return {
+            status: "passed",
+            summary: "Theme check passed.",
+            checkedAt: "2026-03-20T12:03:00.000Z"
+          } satisfies ThemeCheckResult;
+        }
+      }
+    });
+
+    await pipeline.process(job.id);
+
+    await expect(repository.getById(job.id)).resolves.toMatchObject({
+      id: job.id,
+      status: "failed",
+      currentStage: "integration_check",
+      integration: {
+        status: "failed",
+        summary: "Integration checks failed for Example Storefront."
+      },
+      error: {
+        stage: "integration_check",
+        message: "Integration checks failed for Example Storefront."
+      },
+      artifacts: expect.arrayContaining([
+        expect.objectContaining({
+          path: "config/generated-integration-report.json",
+          status: "generated"
         })
       ])
     });

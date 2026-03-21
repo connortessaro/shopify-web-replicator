@@ -7,6 +7,7 @@ export const pipelineStages = [
   "theme_generation",
   "store_setup",
   "commerce_wiring",
+  "integration_check",
   "review"
 ] as const;
 
@@ -15,6 +16,7 @@ export const jobStatuses = ["queued", "in_progress", "needs_review", "completed"
 export const artifactKinds = ["section", "template", "snippet", "config"] as const;
 export const artifactStatuses = ["pending", "generated", "failed"] as const;
 export const validationStatuses = ["pending", "passed", "failed"] as const;
+export const integrationStatuses = ["passed", "failed"] as const;
 export const pageTypes = ["landing_page", "homepage", "product_page", "collection_page"] as const;
 export const sectionBlueprintTypes = [
   "hero",
@@ -61,6 +63,11 @@ export const stableCommerceArtifact = {
   description: "Deterministic commerce wiring snippet covering cart entrypoints and native checkout handoff"
 } as const;
 
+export const stableIntegrationArtifact = {
+  path: "config/generated-integration-report.json",
+  description: "Deterministic integration report covering theme, store setup, and commerce consistency"
+} as const;
+
 export const pageTypeLabels = {
   landing_page: "landing page",
   homepage: "homepage",
@@ -80,6 +87,7 @@ export type JobStatus = (typeof jobStatuses)[number];
 export type ArtifactKind = (typeof artifactKinds)[number];
 export type ArtifactStatus = (typeof artifactStatuses)[number];
 export type ValidationStatus = (typeof validationStatuses)[number];
+export type IntegrationStatus = (typeof integrationStatuses)[number];
 export type PageType = (typeof pageTypes)[number];
 export type SectionBlueprintType = (typeof sectionBlueprintTypes)[number];
 export type ReferenceIntake = z.infer<typeof referenceIntakeSchema>;
@@ -199,6 +207,20 @@ export interface CommerceWiringPlan {
   qaChecklist: string[];
 }
 
+export interface IntegrationCheck {
+  id: string;
+  status: IntegrationStatus;
+  details: string;
+}
+
+export interface IntegrationReport {
+  checkedAt: string;
+  reportPath: string;
+  status: IntegrationStatus;
+  summary: string;
+  checks: IntegrationCheck[];
+}
+
 export interface ThemeCheckResult {
   status: ValidationStatus;
   summary: string;
@@ -223,6 +245,7 @@ export interface ReplicationJob {
   generation?: GenerationResult;
   storeSetup?: StoreSetupPlan;
   commerce?: CommerceWiringPlan;
+  integration?: IntegrationReport;
   validation: ThemeCheckResult;
   error?: JobError;
   createdAt: string;
@@ -277,6 +300,12 @@ function createPendingArtifacts(pageType: PageType): GeneratedThemeArtifact[] {
       path: stableCommerceArtifact.path,
       status: "pending",
       description: stableCommerceArtifact.description
+    },
+    {
+      kind: "config",
+      path: stableIntegrationArtifact.path,
+      status: "pending",
+      description: stableIntegrationArtifact.description
     }
   ];
 }

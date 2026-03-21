@@ -59,10 +59,17 @@ function createJob(overrides: Partial<ReplicationJob> = {}): ReplicationJob {
         completedAt: "2026-03-20T12:05:00.000Z"
       },
       {
+        name: "integration_check",
+        status: "complete",
+        summary: "Deterministic integration report is ready for operator review.",
+        startedAt: "2026-03-20T12:05:00.000Z",
+        completedAt: "2026-03-20T12:06:00.000Z"
+      },
+      {
         name: "review",
         status: "current",
-        summary: "Generated theme files, store setup plan, and commerce wiring are ready for operator QA.",
-        startedAt: "2026-03-20T12:05:00.000Z"
+        summary: "Generated theme files, store setup plan, commerce wiring, and integration report are ready for operator QA.",
+        startedAt: "2026-03-20T12:06:00.000Z"
       }
     ],
     artifacts: [
@@ -93,6 +100,13 @@ function createJob(overrides: Partial<ReplicationJob> = {}): ReplicationJob {
         status: "generated",
         description: "Deterministic commerce wiring snippet covering cart entrypoints and native checkout handoff",
         lastWrittenAt: "2026-03-20T12:05:00.000Z"
+      },
+      {
+        kind: "config",
+        path: "config/generated-integration-report.json",
+        status: "generated",
+        description: "Deterministic integration report covering theme, store setup, and commerce consistency",
+        lastWrittenAt: "2026-03-20T12:06:00.000Z"
       }
     ],
     analysis: {
@@ -182,6 +196,19 @@ function createJob(overrides: Partial<ReplicationJob> = {}): ReplicationJob {
         "Verify the cart uses native Shopify checkout handoff."
       ]
     },
+    integration: {
+      checkedAt: "2026-03-20T12:06:00.000Z",
+      reportPath: "config/generated-integration-report.json",
+      status: "passed",
+      summary: "All deterministic integration checks passed for Example Store.",
+      checks: [
+        {
+          id: "generated_artifacts",
+          status: "passed",
+          details: "Theme, store setup, and commerce artifacts are all generated."
+        }
+      ]
+    },
     validation: {
       status: "passed",
       summary: "Theme check passed.",
@@ -198,7 +225,7 @@ describe("JobDetailPage", () => {
     vi.useRealTimers();
   });
 
-  it("renders stage summaries, mapping details, store setup, commerce wiring, validation, and generated artifacts", async () => {
+  it("renders stage summaries, mapping details, store setup, commerce wiring, integration, validation, and generated artifacts", async () => {
     const job = createJob();
     const loadJob = vi.fn().mockResolvedValue(job);
 
@@ -221,6 +248,8 @@ describe("JobDetailPage", () => {
     expect(screen.getAllByText(/example-store-primary/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/prepared deterministic commerce wiring plan for example store/i)).toBeInTheDocument();
     expect(screen.getAllByText(/snippets\/generated-commerce-wiring\.liquid/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/all deterministic integration checks passed for example store/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/config\/generated-integration-report\.json/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/theme check passed/i)).toBeInTheDocument();
     expect(screen.getByText(/primary generated landing section output/i)).toBeInTheDocument();
     expect(screen.getByText(/reference intake accepted/i)).toBeInTheDocument();
@@ -271,6 +300,11 @@ describe("JobDetailPage", () => {
           summary: "Waiting for commerce wiring."
         },
         {
+          name: "integration_check",
+          status: "pending",
+          summary: "Waiting for integration check."
+        },
+        {
           name: "review",
           status: "pending",
           summary: "Waiting for review."
@@ -306,7 +340,7 @@ describe("JobDetailPage", () => {
     expect(
       (
         await screen.findAllByText(
-          /generated theme files, store setup plan, and commerce wiring are ready for operator qa/i
+          /generated theme files, store setup plan, commerce wiring, and integration report are ready for operator qa/i
         )
       ).length
     ).toBeGreaterThan(0);
