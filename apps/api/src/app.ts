@@ -17,7 +17,21 @@ type CreateAppOptions = {
   createJob?: (intake: ReferenceIntake) => Promise<ReplicationJobSummary>;
   enqueueJob?: (jobId: string) => Promise<void> | void;
   runtime?: AppRuntimeConfig;
+  allowedOrigins?: string[];
 };
+
+const defaultAllowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:4173",
+  "http://127.0.0.1:4173",
+  "http://localhost:8787",
+  "http://127.0.0.1:8787"
+] as const;
+
+function resolveAllowedOrigins(configuredOrigins: string[] = []): string[] {
+  return [...new Set([...defaultAllowedOrigins, ...configuredOrigins.map((origin) => origin.trim()).filter(Boolean)])];
+}
 
 export function createApp(options: CreateAppOptions = {}) {
   const repository = options.repository ?? new InMemoryJobRepository();
@@ -36,9 +50,21 @@ export function createApp(options: CreateAppOptions = {}) {
     });
   const enqueueJob = options.enqueueJob ?? (async () => undefined);
   const runtime = options.runtime ?? getDefaultRuntimeConfig();
+  const allowedOrigins = resolveAllowedOrigins(options.allowedOrigins);
   const app = new Hono();
 
-  app.use("*", cors());
+  app.use(
+    "*",
+    cors({
+      origin: (origin) => {
+        if (!origin) {
+          return null;
+        }
+
+        return allowedOrigins.includes(origin) ? origin : null;
+      }
+    })
+  );
 
   app.get("/health", (context) => {
     return context.json({ status: "ok" });

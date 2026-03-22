@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ReplicationJob } from "@shopify-web-replicator/shared";
 
+import { RuntimePreflightError } from "./runtime-preflight";
 import { createReplicatorMcpHandlers } from "./server";
 
 function createJob(): ReplicationJob {
@@ -211,5 +212,48 @@ describe("createReplicatorMcpHandlers", () => {
         message: "Replication job missing-job was not found."
       }
     });
+  });
+
+  it("returns a structured runtime preflight error when replication cannot start", async () => {
+    const handlers = createReplicatorMcpHandlers({
+      replicateStorefront: vi.fn().mockRejectedValue(
+        new RuntimePreflightError([
+          {
+            code: "shopify_cli_unavailable",
+            message: "Shopify CLI is required for replication and theme validation."
+          },
+          {
+            code: "theme_workspace_missing",
+            message: "Theme workspace path does not exist: /tmp/missing-theme"
+          }
+        ])
+      ),
+      getJob: vi.fn(),
+      listRecentJobs: vi.fn()
+    } as never);
+
+    const result = await handlers.replicateStorefront({
+      referenceUrl: "https://example.com",
+      pageType: "landing_page"
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toEqual({
+      error: {
+        code: "runtime_preflight_failed",
+        message: "Runtime preflight failed.",
+        issues: [
+          {
+            code: "shopify_cli_unavailable",
+            message: "Shopify CLI is required for replication and theme validation."
+          },
+          {
+            code: "theme_workspace_missing",
+            message: "Theme workspace path does not exist: /tmp/missing-theme"
+          }
+        ]
+      }
+    });
+    expect(result.content[0]?.text).toContain("Runtime preflight failed");
   });
 });

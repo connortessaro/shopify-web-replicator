@@ -26,6 +26,48 @@ describe("createApp", () => {
     await expect(response.json()).resolves.toEqual({ status: "ok" });
   });
 
+  it("allows localhost origins for the companion web app by default", async () => {
+    const app = createApp();
+
+    const response = await app.request("/health", {
+      headers: {
+        origin: "http://localhost:5173"
+      }
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("http://localhost:5173");
+    expect(response.headers.get("Vary")).toContain("Origin");
+  });
+
+  it("does not allow arbitrary origins by default", async () => {
+    const app = createApp();
+
+    const response = await app.request("/health", {
+      headers: {
+        origin: "https://evil.example"
+      }
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
+  });
+
+  it("allows configured extra origins for companion surfaces", async () => {
+    const app = createApp({
+      allowedOrigins: ["https://preview.example.com"]
+    });
+
+    const response = await app.request("/health", {
+      headers: {
+        origin: "https://preview.example.com"
+      }
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://preview.example.com");
+  });
+
   it("creates a replication job, persists it, and enqueues background processing", async () => {
     const dataRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-api-"));
     tempDirectories.push(dataRoot);

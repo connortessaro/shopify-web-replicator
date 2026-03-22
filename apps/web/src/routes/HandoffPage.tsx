@@ -32,7 +32,9 @@ export function HandoffPage({ loadJob, loadRuntime }: HandoffPageProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!jobId) {
+    const currentJobId = jobId ?? "";
+
+    if (!currentJobId) {
       setErrorMessage("Missing job id.");
       return;
     }
@@ -41,7 +43,10 @@ export function HandoffPage({ loadJob, loadRuntime }: HandoffPageProps) {
 
     async function syncHandoff() {
       try {
-        const [loadedJob, loadedRuntime] = await Promise.all([loadJob(jobId), loadRuntime()]);
+        const [loadedJob, loadedRuntime] = await Promise.all([
+          loadJob(currentJobId),
+          loadRuntime()
+        ]);
 
         if (isCancelled) {
           return;

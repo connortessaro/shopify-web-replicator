@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   pageTypeLabels,
   pageTypes,
+  type PageType,
   type ReferenceIntake,
   type ReplicationJobSummary
 } from "@shopify-web-replicator/shared";
@@ -25,7 +26,7 @@ export function IntakePage({
 }: IntakePageProps) {
   const navigate = useNavigate();
   const [referenceUrl, setReferenceUrl] = useState("");
-  const [pageType, setPageType] = useState("landing_page");
+  const [pageType, setPageType] = useState<PageType>("landing_page");
   const [notes, setNotes] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -109,7 +110,7 @@ export function IntakePage({
               aria-label="Page Type"
               name="pageType"
               value={pageType}
-              onChange={(event) => setPageType(event.target.value)}
+              onChange={(event) => setPageType(event.target.value as PageType)}
             >
               {pageTypes.map((pageTypeOption) => (
                 <option key={pageTypeOption} value={pageTypeOption}>

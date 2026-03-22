@@ -13,7 +13,8 @@ function createJob(overrides: Partial<ReplicationJob> = {}): ReplicationJob {
     currentStage: "review",
     intake: {
       referenceUrl: "https://example.com/collection",
-      notes: "Collection page rebuild"
+      notes: "Collection page rebuild",
+      pageType: "landing_page"
     },
     stages: [
       {
@@ -310,7 +311,6 @@ describe("JobDetailPage", () => {
           summary: "Waiting for review."
         }
       ],
-      generation: undefined,
       validation: {
         status: "pending",
         summary: "Theme validation has not run yet."
@@ -354,7 +354,6 @@ describe("JobDetailPage", () => {
         stage: "mapping",
         message: "Mapping failed"
       },
-      mapping: undefined,
       validation: {
         status: "pending",
         summary: "Theme validation has not run yet."

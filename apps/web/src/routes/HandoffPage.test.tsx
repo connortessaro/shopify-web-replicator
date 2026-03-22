@@ -2,16 +2,19 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import type { ReplicationJob } from "@shopify-web-replicator/shared";
+
 import { HandoffPage } from "./HandoffPage";
 
 describe("HandoffPage", () => {
   it("shows the selected job handoff with runtime config and validation output", async () => {
-    const loadJob = async () => ({
+    const loadJob = async (): Promise<ReplicationJob> => ({
       id: "job_123",
       status: "needs_review",
       currentStage: "review",
       intake: {
-        referenceUrl: "https://example.com"
+        referenceUrl: "https://example.com",
+        pageType: "landing_page"
       },
       stages: [],
       artifacts: [

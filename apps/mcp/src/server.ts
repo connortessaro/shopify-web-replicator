@@ -9,6 +9,10 @@ import type {
 import { pageTypes, referenceIntakeSchema } from "@shopify-web-replicator/shared";
 
 import type { ReplicationHandoff, ReplicationOrchestrator } from "@shopify-web-replicator/engine";
+import {
+  RuntimePreflightError,
+  type RuntimePreflightIssue
+} from "./runtime-preflight.js";
 
 type ToolTextContent = {
   type: "text";
@@ -32,7 +36,13 @@ type NotFoundFailure = {
   message: string;
 };
 
-type ReplicationToolStructuredContent = {
+type RuntimePreflightFailure = {
+  code: "runtime_preflight_failed";
+  message: string;
+  issues: RuntimePreflightIssue[];
+};
+
+type ReplicationToolSuccessStructuredContent = {
   jobId: string;
   status: ReplicationJob["status"];
   currentStage: ReplicationJob["currentStage"];
@@ -52,7 +62,16 @@ type ReplicationToolStructuredContent = {
   error?: ReplicationFailure;
 };
 
-type JobLookupStructuredContent = ReplicationJob | { error: NotFoundFailure };
+type ReplicationToolStructuredContent =
+  | ReplicationToolSuccessStructuredContent
+  | { error: RuntimePreflightFailure };
+
+type JobLookupStructuredContent =
+  | ReplicationJob
+  | { error: NotFoundFailure | RuntimePreflightFailure };
+type JobListStructuredContent =
+  | ReplicationJobSummary[]
+  | { error: RuntimePreflightFailure };
 
 export type ReplicatorMcpAdapter = Pick<
   ReplicationOrchestrator,
@@ -68,7 +87,7 @@ export type ReplicatorMcpHandlers = {
   ) => Promise<ToolResult<JobLookupStructuredContent>>;
   listReplicationJobs: (
     input: { limit?: number }
-  ) => Promise<ToolResult<ReplicationJobSummary[]>>;
+  ) => Promise<ToolResult<JobListStructuredContent>>;
 };
 
 function createTextResult<TStructuredContent>(
@@ -87,7 +106,7 @@ function toSerializableRecord(value: unknown): Record<string, unknown> {
   return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
 }
 
-function toStructuredContent(handoff: ReplicationHandoff): ReplicationToolStructuredContent {
+function toStructuredContent(handoff: ReplicationHandoff): ReplicationToolSuccessStructuredContent {
   const { job, nextActions, runtime } = handoff;
 
   return {
@@ -119,47 +138,91 @@ function toStructuredContent(handoff: ReplicationHandoff): ReplicationToolStruct
   };
 }
 
+function toRuntimePreflightFailure(error: RuntimePreflightError): RuntimePreflightFailure {
+  return {
+    code: "runtime_preflight_failed",
+    message: error.message,
+    issues: error.issues
+  };
+}
+
 export function createReplicatorMcpHandlers(orchestrator: ReplicatorMcpAdapter): ReplicatorMcpHandlers {
   return {
     async replicateStorefront(input: ReferenceIntake) {
-      const intake = referenceIntakeSchema.parse(input);
-      const handoff = await orchestrator.replicateStorefront(intake);
-      const structuredContent = toStructuredContent(handoff);
-      const isError = handoff.job.status === "failed";
+      try {
+        const intake = referenceIntakeSchema.parse(input);
+        const handoff = await orchestrator.replicateStorefront(intake);
+        const structuredContent = toStructuredContent(handoff);
+        const isError = handoff.job.status === "failed";
 
-      return createTextResult(
-        `Replication job ${handoff.job.id} finished with status ${handoff.job.status} at stage ${handoff.job.currentStage}.`,
-        structuredContent,
-        isError
-      );
+        return createTextResult(
+          `Replication job ${handoff.job.id} finished with status ${handoff.job.status} at stage ${handoff.job.currentStage}.`,
+          structuredContent,
+          isError
+        );
+      } catch (error) {
+        if (error instanceof RuntimePreflightError) {
+          return createTextResult(
+            `Runtime preflight failed. ${error.issues.map((issue) => issue.message).join(" ")}`,
+            { error: toRuntimePreflightFailure(error) },
+            true
+          );
+        }
+
+        throw error;
+      }
     },
 
     async getReplicationJob({ jobId }: { jobId: string }) {
-      const job = await orchestrator.getJob(jobId);
+      try {
+        const job = await orchestrator.getJob(jobId);
 
-      if (!job) {
+        if (!job) {
+          return createTextResult(
+            `Replication job ${jobId} was not found.`,
+            {
+              error: {
+                code: "job_not_found",
+                message: `Replication job ${jobId} was not found.`
+              }
+            },
+            true
+          );
+        }
+
         return createTextResult(
-          `Replication job ${jobId} was not found.`,
-          {
-            error: {
-              code: "job_not_found",
-              message: `Replication job ${jobId} was not found.`
-            }
-          },
-          true
+          `Loaded replication job ${job.id} with status ${job.status} at stage ${job.currentStage}.`,
+          job
         );
-      }
+      } catch (error) {
+        if (error instanceof RuntimePreflightError) {
+          return createTextResult(
+            `Runtime preflight failed. ${error.issues.map((issue) => issue.message).join(" ")}`,
+            { error: toRuntimePreflightFailure(error) },
+            true
+          );
+        }
 
-      return createTextResult(
-        `Loaded replication job ${job.id} with status ${job.status} at stage ${job.currentStage}.`,
-        job
-      );
+        throw error;
+      }
     },
 
     async listReplicationJobs({ limit }: { limit?: number }) {
-      const recentJobs = await orchestrator.listRecentJobs(limit ?? 10);
+      try {
+        const recentJobs = await orchestrator.listRecentJobs(limit ?? 10);
 
-      return createTextResult(`Loaded ${recentJobs.length} replication job summaries.`, recentJobs);
+        return createTextResult(`Loaded ${recentJobs.length} replication job summaries.`, recentJobs);
+      } catch (error) {
+        if (error instanceof RuntimePreflightError) {
+          return createTextResult(
+            `Runtime preflight failed. ${error.issues.map((issue) => issue.message).join(" ")}`,
+            { error: toRuntimePreflightFailure(error) },
+            true
+          );
+        }
+
+        throw error;
+      }
     }
   };
 }
@@ -225,12 +288,15 @@ export function createReplicatorMcpServer(orchestrator: ReplicatorMcpAdapter): M
     },
     async ({ limit }) => {
       const result = await handlers.listReplicationJobs(limit === undefined ? {} : { limit });
+      const structuredContent = Array.isArray(result.structuredContent)
+        ? {
+            jobs: JSON.parse(JSON.stringify(result.structuredContent)) as ReplicationJobSummary[]
+          }
+        : toSerializableRecord(result.structuredContent);
 
       return {
         content: result.content,
-        structuredContent: {
-          jobs: JSON.parse(JSON.stringify(result.structuredContent)) as ReplicationJobSummary[]
-        },
+        structuredContent,
         ...(result.isError ? { isError: true as const } : {})
       };
     }
