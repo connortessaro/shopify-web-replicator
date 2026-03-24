@@ -3,17 +3,19 @@ import { describe, expect, it } from "vitest";
 import { createReplicationJob, pipelineStages } from "./job";
 
 describe("createReplicationJob", () => {
-  it("creates a job ready for deterministic analysis with stable pending theme, setup, commerce, and integration artifacts", () => {
+  it("creates a job ready for route discovery, capture, replication, parity audit, and review", () => {
     const job = createReplicationJob({
       referenceUrl: "https://example.com",
+      destinationStore: "local-dev-store",
       notes: "hero-focused landing page",
       pageType: "landing_page"
     });
 
     expect(job.status).toBe("in_progress");
-    expect(job.currentStage).toBe("analysis");
+    expect(job.currentStage).toBe("source_qualification");
     expect(job.intake).toEqual({
       referenceUrl: "https://example.com",
+      destinationStore: "local-dev-store",
       notes: "hero-focused landing page",
       pageType: "landing_page"
     });
@@ -25,15 +27,45 @@ describe("createReplicationJob", () => {
       completedAt: job.createdAt
     });
     expect(job.stages[1]).toMatchObject({
-      name: "analysis",
+      name: "source_qualification",
       status: "current",
-      summary: "Preparing deterministic landing page analysis.",
+      summary: "Validating the reference source and destination store.",
       startedAt: job.createdAt
     });
-    expect(job.stages.at(-3)).toMatchObject({
-      name: "validation",
+    expect(job.stages[2]).toMatchObject({
+      name: "route_inventory",
       status: "pending",
-      summary: "Waiting for validation."
+      summary: "Waiting for route inventory."
+    });
+    expect(job.stages[3]).toMatchObject({
+      name: "capture",
+      status: "pending",
+      summary: "Waiting for capture."
+    });
+    expect(job.stages[4]).toMatchObject({
+      name: "storefront_model",
+      status: "pending",
+      summary: "Waiting for storefront model."
+    });
+    expect(job.stages[5]).toMatchObject({
+      name: "analysis",
+      status: "pending",
+      summary: "Waiting for analysis."
+    });
+    expect(job.stages[8]).toMatchObject({
+      name: "asset_sync",
+      status: "pending",
+      summary: "Waiting for asset sync."
+    });
+    expect(job.stages[11]).toMatchObject({
+      name: "admin_replication",
+      status: "pending",
+      summary: "Waiting for admin replication."
+    });
+    expect(job.stages.at(-3)).toMatchObject({
+      name: "parity_audit",
+      status: "pending",
+      summary: "Waiting for parity audit."
     });
     expect(job.stages.at(-2)).toMatchObject({
       name: "integration_check",
@@ -63,7 +95,7 @@ describe("createReplicationJob", () => {
         kind: "config",
         path: "config/generated-store-setup.json",
         status: "pending",
-        description: "Deterministic store setup plan covering products, collections, menus, and structured content"
+        description: "Import-ready store setup bundle covering products, collections, menus, and structured content"
       },
       {
         kind: "snippet",
@@ -81,19 +113,84 @@ describe("createReplicationJob", () => {
     expect(job.analysis).toBeUndefined();
     expect(job.mapping).toBeUndefined();
     expect(job.generation).toBeUndefined();
+    expect((job as { routeInventory?: unknown }).routeInventory).toBeUndefined();
+    expect((job as { storefrontModel?: unknown }).storefrontModel).toBeUndefined();
+    expect((job as { assetSync?: unknown }).assetSync).toBeUndefined();
     expect(job.storeSetup).toBeUndefined();
     expect(job.commerce).toBeUndefined();
+    expect((job as { adminReplication?: unknown }).adminReplication).toBeUndefined();
+    expect((job as { parityAudit?: unknown }).parityAudit).toBeUndefined();
     expect(job.integration).toBeUndefined();
     expect(job.validation).toEqual({
       status: "pending",
       summary: "Theme validation has not run yet."
     });
+    expect((job as { capture?: unknown }).capture).toBeUndefined();
     expect(job.error).toBeUndefined();
+  });
+
+  it("supports runtime capture roots and disk-backed capture metadata", () => {
+    const job = createReplicationJob({
+      referenceUrl: "https://example.com/products/trail-pack",
+      destinationStore: "local-dev-store",
+      pageType: "product_page"
+    });
+
+    job.sourceQualification = {
+      status: "supported",
+      platform: "shopify",
+      referenceHost: "example.com",
+      resolvedUrl: "https://example.com/products/trail-pack",
+      qualifiedAt: "2026-03-21T12:00:00.000Z",
+      summary: "Verified a supported public Shopify storefront source.",
+      evidence: ["window.Shopify"],
+      httpStatus: 200,
+      isPasswordProtected: false
+    };
+
+    job.capture = {
+      sourceUrl: "https://example.com/products/trail-pack",
+      resolvedUrl: "https://example.com/products/trail-pack",
+      referenceHost: "example.com",
+      title: "Trail Pack",
+      capturedAt: "2026-03-21T12:00:30.000Z",
+      captureBundlePath: ".data/captures/job_123/capture-bundle.json",
+      desktopScreenshotPath: ".data/captures/job_123/desktop.jpg",
+      mobileScreenshotPath: ".data/captures/job_123/mobile.jpg",
+      textContent: "Trail Pack Product details",
+      headingOutline: ["Trail Pack", "Product details"],
+      navigationLinks: [{ label: "Shop", href: "https://example.com/collections/all" }],
+      primaryCtas: [{ label: "Buy now", href: "https://example.com/products/trail-pack" }],
+      imageAssets: [{ src: "https://cdn.shopify.com/trail-pack.jpg", alt: "Trail Pack" }],
+      styleTokens: {
+        dominantColors: ["rgb(255, 255, 255)", "rgb(17, 24, 39)"],
+        fontFamilies: ["Inter", "Georgia"],
+        bodyTextColor: "rgb(17, 24, 39)",
+        pageBackgroundColor: "rgb(255, 255, 255)",
+        primaryButtonBackgroundColor: "rgb(17, 24, 39)",
+        primaryButtonTextColor: "rgb(255, 255, 255)",
+        linkColor: "rgb(37, 99, 235)"
+      },
+      routeHints: {
+        productHandles: ["trail-pack"],
+        collectionHandles: ["all"],
+        cartPath: "/cart",
+        checkoutPath: "/checkout"
+      }
+    };
+
+    expect(job.sourceQualification.httpStatus).toBe(200);
+    expect(job.capture.captureBundlePath).toContain("capture-bundle.json");
+    expect(job.capture.desktopScreenshotPath).toContain("desktop.jpg");
+    expect(job.capture.mobileScreenshotPath).toContain("mobile.jpg");
+    expect(job.capture.styleTokens.fontFamilies).toEqual(["Inter", "Georgia"]);
+    expect(job.capture.routeHints.productHandles).toEqual(["trail-pack"]);
   });
 
   it("starts with review-only terminal states unset", () => {
     const job = createReplicationJob({
-      referenceUrl: "https://example.com/offer"
+      referenceUrl: "https://example.com/offer",
+      destinationStore: "local-dev-store"
     });
 
     expect(job.status).not.toBe("failed");
@@ -104,14 +201,32 @@ describe("createReplicationJob", () => {
   it("creates product-page jobs with product-specific stable artifacts", () => {
     const job = createReplicationJob({
       referenceUrl: "https://example.com/products/trail-pack",
+      destinationStore: "local-dev-store",
       pageType: "product_page"
     });
 
     expect(job.intake.pageType).toBe("product_page");
     expect(job.stages[1]).toMatchObject({
-      summary: "Preparing deterministic product page analysis."
+      name: "source_qualification",
+      summary: "Validating the reference source and destination store."
     });
-    expect(job.stages.at(-3)?.name).toBe("validation");
+    expect(job.stages[2]).toMatchObject({
+      name: "route_inventory",
+      summary: "Waiting for route inventory."
+    });
+    expect(job.stages[3]).toMatchObject({
+      name: "capture",
+      summary: "Waiting for capture."
+    });
+    expect(job.stages[4]).toMatchObject({
+      name: "storefront_model",
+      summary: "Waiting for storefront model."
+    });
+    expect(job.stages[5]).toMatchObject({
+      summary: "Waiting for analysis."
+    });
+    expect(job.stages.at(-4)?.name).toBe("validation");
+    expect(job.stages.at(-3)?.name).toBe("parity_audit");
     expect(job.stages.at(-2)?.name).toBe("integration_check");
     expect(job.stages.at(-1)?.name).toBe("review");
     expect(job.artifacts).toEqual([
@@ -131,7 +246,7 @@ describe("createReplicationJob", () => {
         kind: "config",
         path: "config/generated-store-setup.json",
         status: "pending",
-        description: "Deterministic store setup plan covering products, collections, menus, and structured content"
+        description: "Import-ready store setup bundle covering products, collections, menus, and structured content"
       },
       {
         kind: "snippet",

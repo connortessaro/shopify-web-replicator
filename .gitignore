@@ -8,3 +8,5 @@ coverage
 .env
 .env.*
 !.env.example
+config/destination-stores.json
+!config/destination-stores.example.json

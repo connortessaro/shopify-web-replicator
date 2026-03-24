@@ -201,7 +201,8 @@ function createStoreSetupPlan(analysis: ReferenceAnalysis): StoreSetupPlan {
   return {
     plannedAt: new Date().toISOString(),
     configPath: stableStoreSetupArtifact.path,
-    summary: `Prepared deterministic store setup plan for ${analysis.title} covering products, collections, menus, and structured content for the ${pageTypeLabels[analysis.pageType]}.`,
+    importBundlePath: stableStoreSetupArtifact.path,
+    summary: `Prepared import-ready store setup bundle for ${analysis.title} covering products, collections, menus, and structured content for the ${pageTypeLabels[analysis.pageType]}.`,
     products,
     collections,
     menus,
@@ -230,7 +231,14 @@ export class ShopifyStoreSetupGenerator {
           pageType: analysis.pageType,
           title: analysis.title,
           mappingSummary: mapping.summary,
-          storeSetup
+          storeSetup,
+          importBundle: {
+            generatedAt: storeSetup.plannedAt,
+            products: storeSetup.products,
+            collections: storeSetup.collections,
+            menus: storeSetup.menus,
+            contentModels: storeSetup.contentModels
+          }
         },
         null,
         2

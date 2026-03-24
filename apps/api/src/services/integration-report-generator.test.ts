@@ -71,7 +71,8 @@ describe("ShopifyIntegrationReportGenerator", () => {
     const storeSetup: StoreSetupPlan = {
       plannedAt: "2026-03-20T12:02:00.000Z",
       configPath: "config/generated-store-setup.json",
-      summary: "Prepared deterministic store setup plan for Example Storefront.",
+      importBundlePath: "config/generated-store-setup.json",
+      summary: "Prepared import-ready store setup bundle for Example Storefront.",
       products: [
         {
           handle: "example-storefront",
@@ -133,7 +134,7 @@ describe("ShopifyIntegrationReportGenerator", () => {
           kind: "config",
           path: "config/generated-store-setup.json",
           status: "generated",
-          description: "Deterministic store setup plan covering products, collections, menus, and structured content"
+          description: "Import-ready store setup bundle covering products, collections, menus, and structured content"
         },
         {
           kind: "snippet",
@@ -194,7 +195,8 @@ describe("ShopifyIntegrationReportGenerator", () => {
     const storeSetup: StoreSetupPlan = {
       plannedAt: "2026-03-20T12:02:00.000Z",
       configPath: "config/generated-store-setup.json",
-      summary: "Prepared deterministic store setup plan for Example Storefront.",
+      importBundlePath: "config/generated-store-setup.json",
+      summary: "Prepared import-ready store setup bundle for Example Storefront.",
       products: [],
       collections: [],
       menus: [],
@@ -243,7 +245,7 @@ describe("ShopifyIntegrationReportGenerator", () => {
           kind: "config",
           path: "config/generated-store-setup.json",
           status: "generated",
-          description: "Deterministic store setup plan covering products, collections, menus, and structured content"
+          description: "Import-ready store setup bundle covering products, collections, menus, and structured content"
         },
         {
           kind: "snippet",

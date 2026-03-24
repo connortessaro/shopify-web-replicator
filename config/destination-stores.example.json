@@ -1,0 +1,8 @@
+[
+  {
+    "id": "local-dev-store",
+    "label": "Local Dev Store",
+    "shopDomain": "local-dev-store.myshopify.com",
+    "themeNamePrefix": "Replicator"
+  }
+]

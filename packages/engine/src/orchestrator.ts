@@ -1,10 +1,13 @@
 import type {
   AppRuntimeConfig,
+  DestinationStoreProfile,
   PageType,
+  ReferenceCapture,
   ReferenceAnalysis,
   ReferenceIntake,
   ReplicationJob,
   ReplicationJobSummary,
+  SourceQualification,
   StoreSetupPlan,
   ThemeCheckResult,
   ThemeMapping
@@ -17,14 +20,22 @@ import { getDefaultRuntimeConfig } from "./runtime.js";
 import { ShopifyCommerceWiringGenerator } from "./services/commerce-wiring-generator.js";
 import { ShopifyIntegrationReportGenerator } from "./services/integration-report-generator.js";
 import { DeterministicPageAnalyzer } from "./services/page-analyzer.js";
+import { HtmlReferenceCaptureService } from "./services/reference-capture.js";
 import { ReplicationPipeline } from "./services/replication-pipeline.js";
+import { StorefrontInspector } from "./services/storefront-inspector.js";
 import { ShopifyStoreSetupGenerator } from "./services/store-setup-generator.js";
+import { ShopifySourceQualificationService } from "./services/source-qualification.js";
 import { DeterministicThemeMapper } from "./services/theme-mapper.js";
 import { ShopifyThemeGenerator } from "./services/theme-generator.js";
 import { ShopifyThemeValidator } from "./services/theme-validator.js";
 
 type Analyzer = {
-  analyze(input: { referenceUrl: string; pageType?: PageType; notes?: string }): Promise<ReferenceAnalysis>;
+  analyze(input: {
+    referenceUrl: string;
+    pageType?: PageType;
+    notes?: string;
+    capture?: ReferenceCapture;
+  }): Promise<ReferenceAnalysis>;
 };
 
 type Mapper = {
@@ -90,6 +101,12 @@ export interface ReplicationHandoff {
 export type ReplicationOrchestratorOptions = {
   repository: JobRepository;
   runtime: AppRuntimeConfig;
+  qualificationService: {
+    qualify(input: { jobId: string; referenceUrl: string }): Promise<SourceQualification>;
+  };
+  captureService: {
+    capture(input: { jobId: string; referenceUrl: string }): Promise<ReferenceCapture>;
+  };
   analyzer: Analyzer;
   mapper: Mapper;
   generator: Generator;
@@ -104,6 +121,13 @@ export type DefaultReplicationOrchestratorOptions = {
   databasePath?: string;
   themeWorkspacePath?: string;
 };
+
+function resolveDestinationStore(
+  runtime: AppRuntimeConfig,
+  destinationStoreId: string
+): DestinationStoreProfile | undefined {
+  return runtime.destinationStores.find((store) => store.id === destinationStoreId);
+}
 
 function buildNextActions(job: ReplicationJob): string[] {
   if (job.status === "failed") {
@@ -131,6 +155,8 @@ export class ReplicationOrchestrator {
     this.#runtime = options.runtime;
     this.#pipeline = new ReplicationPipeline({
       repository: options.repository,
+      qualificationService: options.qualificationService,
+      captureService: options.captureService,
       analyzer: options.analyzer,
       mapper: options.mapper,
       generator: options.generator,
@@ -145,7 +171,15 @@ export class ReplicationOrchestrator {
     return this.#runtime;
   }
 
+  listDestinationStores(): DestinationStoreProfile[] {
+    return [...this.#runtime.destinationStores];
+  }
+
   async createJob(intake: ReferenceIntake): Promise<ReplicationJobSummary> {
+    if (!resolveDestinationStore(this.#runtime, intake.destinationStore)) {
+      throw new Error(`Unknown destination store ${intake.destinationStore}.`);
+    }
+
     const job = await this.repository.save(createReplicationJob(intake));
 
     return {
@@ -153,7 +187,8 @@ export class ReplicationOrchestrator {
       status: job.status,
       currentStage: job.currentStage,
       createdAt: job.createdAt,
-      pageType: job.intake.pageType
+      pageType: job.intake.pageType,
+      destinationStore: job.intake.destinationStore
     };
   }
 
@@ -206,10 +241,13 @@ export function createDefaultReplicationOrchestrator(
   const repository = new SqliteJobRepository(
     options.databasePath ?? process.env.REPLICATOR_DB_PATH ?? `${cwd}/.data/replicator.db`
   );
+  const inspector = new StorefrontInspector(runtime.captureRootPath);
 
   return createReplicationOrchestrator({
     repository,
     runtime,
+    qualificationService: new ShopifySourceQualificationService(inspector),
+    captureService: new HtmlReferenceCaptureService(inspector),
     analyzer: new DeterministicPageAnalyzer(),
     mapper: new DeterministicThemeMapper(),
     generator: new ShopifyThemeGenerator(runtime.themeWorkspacePath),

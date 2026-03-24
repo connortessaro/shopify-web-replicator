@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
 import type {
+  DestinationStoreProfile,
   ReferenceIntake,
   ReplicationJob,
   ReplicationJobSummary
@@ -38,6 +39,8 @@ type ReplicationToolStructuredContent = {
   currentStage: ReplicationJob["currentStage"];
   createdAt: string;
   updatedAt: string;
+  sourceQualification: ReplicationJob["sourceQualification"];
+  capture: ReplicationJob["capture"];
   analysis: ReplicationJob["analysis"];
   mapping: ReplicationJob["mapping"];
   generation: ReplicationJob["generation"];
@@ -47,7 +50,9 @@ type ReplicationToolStructuredContent = {
   validation: ReplicationJob["validation"];
   artifacts: ReplicationJob["artifacts"];
   themeWorkspacePath: string;
+  captureRootPath: string;
   previewCommand: string;
+  destinationStore?: DestinationStoreProfile;
   nextActions: string[];
   error?: ReplicationFailure;
 };
@@ -56,7 +61,7 @@ type JobLookupStructuredContent = ReplicationJob | { error: NotFoundFailure };
 
 export type ReplicatorMcpAdapter = Pick<
   ReplicationOrchestrator,
-  "replicateStorefront" | "getJob" | "listRecentJobs"
+  "replicateStorefront" | "getJob" | "listRecentJobs" | "listDestinationStores"
 >;
 
 export type ReplicatorMcpHandlers = {
@@ -69,6 +74,7 @@ export type ReplicatorMcpHandlers = {
   listReplicationJobs: (
     input: { limit?: number }
   ) => Promise<ToolResult<ReplicationJobSummary[]>>;
+  listDestinationStores: () => Promise<ToolResult<DestinationStoreProfile[]>>;
 };
 
 function createTextResult<TStructuredContent>(
@@ -89,6 +95,7 @@ function toSerializableRecord(value: unknown): Record<string, unknown> {
 
 function toStructuredContent(handoff: ReplicationHandoff): ReplicationToolStructuredContent {
   const { job, nextActions, runtime } = handoff;
+  const destinationStore = runtime.destinationStores.find((store) => store.id === job.intake.destinationStore);
 
   return {
     jobId: job.id,
@@ -96,6 +103,8 @@ function toStructuredContent(handoff: ReplicationHandoff): ReplicationToolStruct
     currentStage: job.currentStage,
     createdAt: job.createdAt,
     updatedAt: job.updatedAt,
+    sourceQualification: job.sourceQualification,
+    capture: job.capture,
     analysis: job.analysis,
     mapping: job.mapping,
     generation: job.generation,
@@ -105,8 +114,10 @@ function toStructuredContent(handoff: ReplicationHandoff): ReplicationToolStruct
     validation: job.validation,
     artifacts: job.artifacts,
     themeWorkspacePath: runtime.themeWorkspacePath,
+    captureRootPath: runtime.captureRootPath,
     previewCommand: runtime.previewCommand,
     nextActions,
+    ...(destinationStore ? { destinationStore } : {}),
     ...(job.error
       ? {
           error: {
@@ -160,6 +171,15 @@ export function createReplicatorMcpHandlers(orchestrator: ReplicatorMcpAdapter):
       const recentJobs = await orchestrator.listRecentJobs(limit ?? 10);
 
       return createTextResult(`Loaded ${recentJobs.length} replication job summaries.`, recentJobs);
+    },
+
+    async listDestinationStores() {
+      const destinationStores = orchestrator.listDestinationStores();
+
+      return createTextResult(
+        `Loaded ${destinationStores.length} destination store profiles.`,
+        destinationStores
+      );
     }
   };
 }
@@ -179,6 +199,7 @@ export function createReplicatorMcpServer(orchestrator: ReplicatorMcpAdapter): M
         "Run the deterministic Shopify replication pipeline for a reference storefront and return a full handoff payload.",
       inputSchema: {
         referenceUrl: z.string().url(),
+        destinationStore: z.string().trim().min(1),
         pageType: z.enum(pageTypes).optional(),
         notes: z.string().trim().min(1).optional()
       }
@@ -230,6 +251,26 @@ export function createReplicatorMcpServer(orchestrator: ReplicatorMcpAdapter): M
         content: result.content,
         structuredContent: {
           jobs: JSON.parse(JSON.stringify(result.structuredContent)) as ReplicationJobSummary[]
+        },
+        ...(result.isError ? { isError: true as const } : {})
+      };
+    }
+  );
+
+  server.registerTool(
+    "list_destination_stores",
+    {
+      title: "List Destination Stores",
+      description: "List configured destination Shopify store profiles available for replication runs.",
+      inputSchema: {}
+    },
+    async () => {
+      const result = await handlers.listDestinationStores();
+
+      return {
+        content: result.content,
+        structuredContent: {
+          destinationStores: JSON.parse(JSON.stringify(result.structuredContent)) as DestinationStoreProfile[]
         },
         ...(result.isError ? { isError: true as const } : {})
       };

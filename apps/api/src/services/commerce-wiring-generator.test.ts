@@ -49,7 +49,8 @@ describe("ShopifyCommerceWiringGenerator", () => {
     const storeSetup: StoreSetupPlan = {
       plannedAt: "2026-03-20T12:02:00.000Z",
       configPath: "config/generated-store-setup.json",
-      summary: "Prepared deterministic store setup plan for Trail Pack.",
+      importBundlePath: "config/generated-store-setup.json",
+      summary: "Prepared import-ready store setup bundle for Trail Pack.",
       products: [
         {
           handle: "trail-pack",

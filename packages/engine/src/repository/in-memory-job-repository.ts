@@ -27,7 +27,8 @@ export class InMemoryJobRepository implements JobRepository {
         status: job.status,
         currentStage: job.currentStage,
         createdAt: job.createdAt,
-        pageType: job.intake.pageType
+        pageType: job.intake.pageType,
+        destinationStore: job.intake.destinationStore
       }));
   }
 }
