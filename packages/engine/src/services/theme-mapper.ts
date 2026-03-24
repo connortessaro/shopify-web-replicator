@@ -3,6 +3,7 @@ import {
   stableThemeArtifacts,
   type PageType,
   type ReferenceAnalysis,
+  type ReferenceCapture,
   type ThemeMapping
 } from "@shopify-web-replicator/shared";
 
@@ -10,6 +11,7 @@ type MapInput = {
   analysis: ReferenceAnalysis;
   referenceUrl: string;
   notes?: string;
+  capture?: ReferenceCapture;
 };
 
 function createPrimaryBody(analysis: ReferenceAnalysis, notes?: string): string {
@@ -54,8 +56,11 @@ function createSummary(pageType: PageType, title: string, notes?: string): strin
 }
 
 export class DeterministicThemeMapper {
-  async map({ analysis, referenceUrl, notes }: MapInput): Promise<ThemeMapping> {
+  async map({ analysis, referenceUrl, notes, capture }: MapInput): Promise<ThemeMapping> {
     const artifacts = stableThemeArtifacts[analysis.pageType];
+    const capturedHeading = capture?.headingOutline[0];
+    const capturedCta = capture?.primaryCtas[0];
+    const title = capturedHeading ?? analysis.title;
 
     return {
       sourceUrl: referenceUrl,
@@ -70,10 +75,10 @@ export class DeterministicThemeMapper {
               {
                 id: "product-detail-1",
                 type: "product_detail",
-                heading: analysis.title,
+                heading: title,
                 body: createPrimaryBody(analysis, notes),
-                ctaLabel: "Add to cart",
-                ctaHref: "/cart"
+                ctaLabel: capturedCta?.label ?? "Add to cart",
+                ctaHref: capturedCta?.href ?? "/cart"
               },
               {
                 id: "supporting-copy-1",
@@ -95,7 +100,7 @@ export class DeterministicThemeMapper {
                 {
                   id: "collection-grid-1",
                   type: "collection_grid",
-                  heading: analysis.title,
+                  heading: title,
                   body: createPrimaryBody(analysis, notes)
                 },
                 {
@@ -117,10 +122,10 @@ export class DeterministicThemeMapper {
                 {
                   id: "hero-1",
                   type: "hero",
-                  heading: analysis.title,
+                  heading: title,
                   body: createPrimaryBody(analysis, notes),
-                  ctaLabel: analysis.pageType === "homepage" ? "Open homepage preview" : "Review generated output",
-                  ctaHref: analysis.pageType === "homepage" ? "/" : "/pages/generated-reference"
+                  ctaLabel: capturedCta?.label ?? (analysis.pageType === "homepage" ? "Shop now" : "Learn more"),
+                  ctaHref: capturedCta?.href ?? (analysis.pageType === "homepage" ? "/" : "/pages/generated-reference")
                 },
                 {
                   id: "supporting-copy-1",
