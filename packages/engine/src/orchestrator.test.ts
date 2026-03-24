@@ -334,13 +334,11 @@ describe("createReplicationOrchestrator", () => {
         }
       },
       integrationGenerator: {
-        async generate({ validation, adminReplication, parityAudit }) {
+        async generate({ validation }) {
           expect(validation).toMatchObject({
             status: "passed",
             summary: "Final theme validation passed."
           });
-          expect(adminReplication.previewUrl).toContain("preview_theme_id=123456789");
-          expect(parityAudit.status).toBe("passed");
 
           return {
             artifact: {
@@ -404,7 +402,8 @@ describe("createReplicationOrchestrator", () => {
         {
           id: "local-dev-store",
           label: "Local Dev Store",
-          shopDomain: "local-dev-store.myshopify.com"
+          shopDomain: "local-dev-store.myshopify.com",
+          adminTokenEnvVar: "SHOPIFY_LOCAL_DEV_TOKEN"
         }
       ]
     });
@@ -442,8 +441,7 @@ describe("createReplicationOrchestrator", () => {
         status: "passed"
       },
       validation: {
-        status: "passed",
-        summary: "Final theme validation passed."
+        status: "passed"
       },
       integration: {
         status: "passed",

@@ -92,6 +92,12 @@ describe("ReplicationPipeline", () => {
 
     const pipeline = new ReplicationPipeline({
       repository,
+      runtime: {
+        themeWorkspacePath: themeRoot,
+        captureRootPath: join(dataRoot, "captures"),
+        previewCommand: "shopify theme dev",
+        destinationStores: [{ id: "local-dev-store", label: "Local Dev Store", shopDomain: "local-dev-store.myshopify.com" }]
+      },
       qualificationService: {
         async qualify({ referenceUrl }) {
           return createQualification(referenceUrl);
@@ -100,6 +106,21 @@ describe("ReplicationPipeline", () => {
       captureService: {
         async capture({ referenceUrl }) {
           return createCapture(referenceUrl, "Example Storefront");
+        }
+      },
+      routeInventoryService: {
+        async build() {
+          return { discoveredAt: "2026-03-20T12:00:20.000Z", referenceHost: "example.com", summary: "Discovered 1 routes.", routes: [{ kind: "homepage" as const, source: "root" as const, url: "https://example.com/" }] };
+        }
+      },
+      storefrontModelBuilder: {
+        async build() {
+          return { modeledAt: "2026-03-20T12:00:25.000Z", referenceHost: "example.com", storeTitle: "Example Storefront", summary: "Built storefront model.", styleTokens: { dominantColors: [], fontFamilies: [] }, pages: [], products: [], collections: [], menus: [], contentModels: [], unsupportedFeatures: [] };
+        }
+      },
+      assetSyncService: {
+        async sync() {
+          return { syncedAt: "2026-03-20T12:02:30.000Z", summary: "Synced 0 assets.", assets: [] };
         }
       },
       analyzer: {
@@ -250,6 +271,12 @@ describe("ReplicationPipeline", () => {
 
     const pipeline = new ReplicationPipeline({
       repository,
+      runtime: {
+        themeWorkspacePath: themeRoot,
+        captureRootPath: join(dataRoot, "captures"),
+        previewCommand: "shopify theme dev",
+        destinationStores: [{ id: "local-dev-store", label: "Local Dev Store", shopDomain: "local-dev-store.myshopify.com" }]
+      },
       qualificationService: {
         async qualify({ referenceUrl }) {
           return createQualification(referenceUrl);
@@ -258,6 +285,21 @@ describe("ReplicationPipeline", () => {
       captureService: {
         async capture({ referenceUrl }) {
           return createCapture(referenceUrl, "Example Storefront");
+        }
+      },
+      routeInventoryService: {
+        async build() {
+          return { discoveredAt: "2026-03-20T12:00:20.000Z", referenceHost: "example.com", summary: "Discovered 1 routes.", routes: [{ kind: "homepage" as const, source: "root" as const, url: "https://example.com/" }] };
+        }
+      },
+      storefrontModelBuilder: {
+        async build() {
+          return { modeledAt: "2026-03-20T12:00:25.000Z", referenceHost: "example.com", storeTitle: "Example Storefront", summary: "Built storefront model.", styleTokens: { dominantColors: [], fontFamilies: [] }, pages: [], products: [], collections: [], menus: [], contentModels: [], unsupportedFeatures: [] };
+        }
+      },
+      assetSyncService: {
+        async sync() {
+          return { syncedAt: "2026-03-20T12:02:30.000Z", summary: "Synced 0 assets.", assets: [] };
         }
       },
       analyzer: {
@@ -448,6 +490,12 @@ describe("ReplicationPipeline", () => {
 
     const pipeline = new ReplicationPipeline({
       repository,
+      runtime: {
+        themeWorkspacePath: themeRoot,
+        captureRootPath: join(dataRoot, "captures"),
+        previewCommand: "shopify theme dev",
+        destinationStores: [{ id: "local-dev-store", label: "Local Dev Store", shopDomain: "local-dev-store.myshopify.com" }]
+      },
       qualificationService: {
         async qualify({ referenceUrl }) {
           return createQualification(referenceUrl);
@@ -456,6 +504,21 @@ describe("ReplicationPipeline", () => {
       captureService: {
         async capture({ referenceUrl }) {
           return createCapture(referenceUrl, "Example Storefront");
+        }
+      },
+      routeInventoryService: {
+        async build() {
+          return { discoveredAt: "2026-03-20T12:00:20.000Z", referenceHost: "example.com", summary: "Discovered 1 routes.", routes: [{ kind: "homepage" as const, source: "root" as const, url: "https://example.com/" }] };
+        }
+      },
+      storefrontModelBuilder: {
+        async build() {
+          return { modeledAt: "2026-03-20T12:00:25.000Z", referenceHost: "example.com", storeTitle: "Example Storefront", summary: "Built storefront model.", styleTokens: { dominantColors: [], fontFamilies: [] }, pages: [], products: [], collections: [], menus: [], contentModels: [], unsupportedFeatures: [] };
+        }
+      },
+      assetSyncService: {
+        async sync() {
+          return { syncedAt: "2026-03-20T12:02:30.000Z", summary: "Synced 0 assets.", assets: [] };
         }
       },
       analyzer: {
@@ -561,6 +624,12 @@ describe("ReplicationPipeline", () => {
 
     const pipeline = new ReplicationPipeline({
       repository,
+      runtime: {
+        themeWorkspacePath: themeRoot,
+        captureRootPath: join(dataRoot, "captures"),
+        previewCommand: "shopify theme dev",
+        destinationStores: [{ id: "local-dev-store", label: "Local Dev Store", shopDomain: "local-dev-store.myshopify.com" }]
+      },
       qualificationService: {
         async qualify({ referenceUrl }) {
           return createQualification(referenceUrl);
@@ -569,6 +638,21 @@ describe("ReplicationPipeline", () => {
       captureService: {
         async capture({ referenceUrl }) {
           return createCapture(referenceUrl, "Example Storefront");
+        }
+      },
+      routeInventoryService: {
+        async build() {
+          return { discoveredAt: "2026-03-20T12:00:20.000Z", referenceHost: "example.com", summary: "Discovered 1 routes.", routes: [{ kind: "homepage" as const, source: "root" as const, url: "https://example.com/" }] };
+        }
+      },
+      storefrontModelBuilder: {
+        async build() {
+          return { modeledAt: "2026-03-20T12:00:25.000Z", referenceHost: "example.com", storeTitle: "Example Storefront", summary: "Built storefront model.", styleTokens: { dominantColors: [], fontFamilies: [] }, pages: [], products: [], collections: [], menus: [], contentModels: [], unsupportedFeatures: [] };
+        }
+      },
+      assetSyncService: {
+        async sync() {
+          return { syncedAt: "2026-03-20T12:02:30.000Z", summary: "Synced 0 assets.", assets: [] };
         }
       },
       analyzer: {

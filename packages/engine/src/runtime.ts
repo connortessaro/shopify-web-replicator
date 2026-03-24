@@ -13,7 +13,8 @@ function normalizeDestinationStoreProfiles(value: unknown): DestinationStoreProf
       throw new Error(`Destination store entry ${index} must be an object.`);
     }
 
-    const { id, label, shopDomain, themeNamePrefix } = entry as Record<string, unknown>;
+    const { id, label, shopDomain, themeNamePrefix, adminTokenEnvVar, apiVersion, baseThemeId, baseThemeRole } =
+      entry as Record<string, unknown>;
 
     if (typeof id !== "string" || id.trim().length === 0) {
       throw new Error(`Destination store entry ${index} is missing a valid id.`);
@@ -27,14 +28,33 @@ function normalizeDestinationStoreProfiles(value: unknown): DestinationStoreProf
       throw new Error(`Destination store entry ${index} is missing a valid shopDomain.`);
     }
 
-    return {
+    const profile: DestinationStoreProfile = {
       id: id.trim(),
       label: label.trim(),
-      shopDomain: shopDomain.trim(),
-      ...(typeof themeNamePrefix === "string" && themeNamePrefix.trim().length > 0
-        ? { themeNamePrefix: themeNamePrefix.trim() }
-        : {})
+      shopDomain: shopDomain.trim()
     };
+
+    if (typeof themeNamePrefix === "string" && themeNamePrefix.trim().length > 0) {
+      profile.themeNamePrefix = themeNamePrefix.trim();
+    }
+
+    if (typeof adminTokenEnvVar === "string" && adminTokenEnvVar.trim().length > 0) {
+      profile.adminTokenEnvVar = adminTokenEnvVar.trim();
+    }
+
+    if (typeof apiVersion === "string" && apiVersion.trim().length > 0) {
+      profile.apiVersion = apiVersion.trim();
+    }
+
+    if (typeof baseThemeId === "string" && baseThemeId.trim().length > 0) {
+      profile.baseThemeId = baseThemeId.trim();
+    }
+
+    if (typeof baseThemeRole === "string" && baseThemeRole.trim().length > 0) {
+      profile.baseThemeRole = baseThemeRole.trim() as DestinationStoreProfile["baseThemeRole"];
+    }
+
+    return profile;
   });
 }
 

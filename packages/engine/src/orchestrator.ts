@@ -1,96 +1,45 @@
 import type {
   AppRuntimeConfig,
   DestinationStoreProfile,
-  PageType,
-  ReferenceCapture,
-  ReferenceAnalysis,
   ReferenceIntake,
   ReplicationJob,
-  ReplicationJobSummary,
-  SourceQualification,
-  StoreSetupPlan,
-  ThemeCheckResult,
-  ThemeMapping
+  ReplicationJobSummary
 } from "@shopify-web-replicator/shared";
 import { createReplicationJob } from "@shopify-web-replicator/shared";
 
 import type { JobRepository } from "./repository/in-memory-job-repository.js";
 import { SqliteJobRepository } from "./repository/sqlite-job-repository.js";
 import { getDefaultRuntimeConfig } from "./runtime.js";
+import { ThemeAssetSyncService } from "./services/asset-sync.js";
 import { ShopifyCommerceWiringGenerator } from "./services/commerce-wiring-generator.js";
 import { ShopifyIntegrationReportGenerator } from "./services/integration-report-generator.js";
 import { DeterministicPageAnalyzer } from "./services/page-analyzer.js";
 import { HtmlReferenceCaptureService } from "./services/reference-capture.js";
 import { ReplicationPipeline } from "./services/replication-pipeline.js";
-import { StorefrontInspector } from "./services/storefront-inspector.js";
-import { ShopifyStoreSetupGenerator } from "./services/store-setup-generator.js";
+import { ShopifyRouteInventoryService } from "./services/route-inventory.js";
 import { ShopifySourceQualificationService } from "./services/source-qualification.js";
+import { StorefrontInspector } from "./services/storefront-inspector.js";
+import { StorefrontModelBuilder } from "./services/storefront-model-builder.js";
+import { ShopifyStoreSetupGenerator } from "./services/store-setup-generator.js";
 import { DeterministicThemeMapper } from "./services/theme-mapper.js";
 import { ShopifyThemeGenerator } from "./services/theme-generator.js";
 import { ShopifyThemeValidator } from "./services/theme-validator.js";
-
-type Analyzer = {
-  analyze(input: {
-    referenceUrl: string;
-    pageType?: PageType;
-    notes?: string;
-    capture?: ReferenceCapture;
-  }): Promise<ReferenceAnalysis>;
-};
-
-type Mapper = {
-  map(input: { analysis: ReferenceAnalysis; referenceUrl: string; notes?: string }): Promise<ThemeMapping>;
-};
-
-type Generator = {
-  generate(input: {
-    analysis: ReferenceAnalysis;
-    mapping: ThemeMapping;
-  }): Promise<{
-    artifacts: ReplicationJob["artifacts"];
-    generation: NonNullable<ReplicationJob["generation"]>;
-  }>;
-};
-
-type StoreSetupGenerator = {
-  generate(input: {
-    analysis: ReferenceAnalysis;
-    mapping: ThemeMapping;
-  }): Promise<{
-    artifact: ReplicationJob["artifacts"][number];
-    storeSetup: StoreSetupPlan;
-  }>;
-};
-
-type CommerceGenerator = {
-  generate(input: {
-    analysis: ReferenceAnalysis;
-    mapping: ThemeMapping;
-    storeSetup: StoreSetupPlan;
-  }): Promise<{
-    artifact: ReplicationJob["artifacts"][number];
-    commerce: NonNullable<ReplicationJob["commerce"]>;
-  }>;
-};
-
-type IntegrationGenerator = {
-  generate(input: {
-    analysis: ReferenceAnalysis;
-    mapping: ThemeMapping;
-    generation: NonNullable<ReplicationJob["generation"]>;
-    storeSetup: StoreSetupPlan;
-    commerce: NonNullable<ReplicationJob["commerce"]>;
-    artifacts: ReplicationJob["artifacts"];
-    validation: ThemeCheckResult;
-  }): Promise<{
-    artifact: ReplicationJob["artifacts"][number];
-    integration: NonNullable<ReplicationJob["integration"]>;
-  }>;
-};
-
-type ThemeValidator = {
-  validate(): Promise<ThemeCheckResult>;
-};
+import type {
+  AdminReplicationService,
+  Analyzer,
+  AssetSyncService,
+  CaptureService,
+  CommerceGenerator,
+  Generator,
+  IntegrationGenerator,
+  Mapper,
+  ParityAuditorService,
+  QualificationService,
+  RouteInventoryService,
+  StorefrontModelBuilderService,
+  StoreSetupGenerator,
+  ThemeValidator
+} from "./services/types.js";
 
 export interface ReplicationHandoff {
   job: ReplicationJob;
@@ -101,19 +50,20 @@ export interface ReplicationHandoff {
 export type ReplicationOrchestratorOptions = {
   repository: JobRepository;
   runtime: AppRuntimeConfig;
-  qualificationService: {
-    qualify(input: { jobId: string; referenceUrl: string }): Promise<SourceQualification>;
-  };
-  captureService: {
-    capture(input: { jobId: string; referenceUrl: string }): Promise<ReferenceCapture>;
-  };
+  qualificationService: QualificationService;
+  captureService: CaptureService;
+  routeInventoryService: RouteInventoryService;
+  storefrontModelBuilder: StorefrontModelBuilderService;
   analyzer: Analyzer;
   mapper: Mapper;
   generator: Generator;
+  assetSyncService: AssetSyncService;
   storeSetupGenerator: StoreSetupGenerator;
   commerceGenerator: CommerceGenerator;
-  integrationGenerator: IntegrationGenerator;
+  adminReplicationService?: AdminReplicationService;
   themeValidator: ThemeValidator;
+  parityAuditor?: ParityAuditorService;
+  integrationGenerator: IntegrationGenerator;
 };
 
 export type DefaultReplicationOrchestratorOptions = {
@@ -140,7 +90,7 @@ function buildNextActions(job: ReplicationJob): string[] {
 
   return [
     "Review the generated artifacts in the theme workspace.",
-    "Run the preview command and verify layout, content wiring, and cart-to-checkout handoff.",
+    "Open the unpublished destination theme preview and verify route parity, content wiring, and cart-to-checkout handoff.",
     "Resolve any failed validation or integration checks before publish."
   ];
 }
@@ -155,15 +105,21 @@ export class ReplicationOrchestrator {
     this.#runtime = options.runtime;
     this.#pipeline = new ReplicationPipeline({
       repository: options.repository,
+      runtime: options.runtime,
       qualificationService: options.qualificationService,
       captureService: options.captureService,
+      routeInventoryService: options.routeInventoryService,
+      storefrontModelBuilder: options.storefrontModelBuilder,
       analyzer: options.analyzer,
       mapper: options.mapper,
       generator: options.generator,
+      assetSyncService: options.assetSyncService,
       storeSetupGenerator: options.storeSetupGenerator,
       commerceGenerator: options.commerceGenerator,
+      themeValidator: options.themeValidator,
       integrationGenerator: options.integrationGenerator,
-      themeValidator: options.themeValidator
+      ...(options.adminReplicationService ? { adminReplicationService: options.adminReplicationService } : {}),
+      ...(options.parityAuditor ? { parityAuditor: options.parityAuditor } : {})
     });
   }
 
@@ -194,13 +150,8 @@ export class ReplicationOrchestrator {
 
   async runJob(jobId: string): Promise<ReplicationJob> {
     await this.#pipeline.process(jobId);
-
     const job = await this.repository.getById(jobId);
-
-    if (!job) {
-      throw new Error(`Missing job ${jobId}`);
-    }
-
+    if (!job) throw new Error(`Missing job ${jobId}`);
     return job;
   }
 
@@ -248,9 +199,12 @@ export function createDefaultReplicationOrchestrator(
     runtime,
     qualificationService: new ShopifySourceQualificationService(inspector),
     captureService: new HtmlReferenceCaptureService(inspector),
+    routeInventoryService: new ShopifyRouteInventoryService(inspector),
+    storefrontModelBuilder: new StorefrontModelBuilder(),
     analyzer: new DeterministicPageAnalyzer(),
     mapper: new DeterministicThemeMapper(),
     generator: new ShopifyThemeGenerator(runtime.themeWorkspacePath),
+    assetSyncService: new ThemeAssetSyncService(),
     storeSetupGenerator: new ShopifyStoreSetupGenerator(runtime.themeWorkspacePath),
     commerceGenerator: new ShopifyCommerceWiringGenerator(runtime.themeWorkspacePath),
     themeValidator: new ShopifyThemeValidator(runtime.themeWorkspacePath),

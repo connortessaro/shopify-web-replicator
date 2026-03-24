@@ -62,6 +62,10 @@ export function createDefaultReplicatorMcpAdapter(
 
     async listRecentJobs(limit) {
       return withPreflight("read", (orchestrator) => orchestrator.listRecentJobs(limit));
+    },
+
+    listDestinationStores() {
+      return runtime.destinationStores;
     }
   };
 }

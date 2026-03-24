@@ -858,7 +858,7 @@ class ShopifyAdminGraphqlClient implements ShopifyAdminReplicationClient {
 
 export class ShopifyAdminReplicationService {
   readonly #workspaceReader: ThemeWorkspaceReader;
-  readonly #clientFactory: ShopifyAdminReplicationServiceOptions["clientFactory"];
+  readonly #clientFactory: NonNullable<ShopifyAdminReplicationServiceOptions["clientFactory"]>;
   readonly #lockManager: DestinationLockManager;
 
   constructor(options: ShopifyAdminReplicationServiceOptions = {}) {
@@ -930,7 +930,7 @@ export class ShopifyAdminReplicationService {
 
       for (const page of storefrontModel.pages.filter((page) => page.kind === "content_page" && page.handle)) {
         const result = await client.upsertPage({
-          handle: page.handle,
+          handle: page.handle!,
           title: page.title,
           body: `<h1>${page.title}</h1><p>Replicated from ${page.url}</p>`
         });

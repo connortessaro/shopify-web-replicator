@@ -22,6 +22,11 @@ function toRouteHandle(pathname: string): string | undefined {
   return segments.at(-1);
 }
 
+function withHandle(route: Omit<RouteInventoryRoute, "handle">, pathname: string): RouteInventoryRoute {
+  const handle = toRouteHandle(pathname);
+  return handle ? { ...route, handle } : route;
+}
+
 function classifyRoute(url: URL): RouteInventoryRoute | undefined {
   if (url.pathname === "/" || url.pathname === "") {
     return {
@@ -36,50 +41,42 @@ function classifyRoute(url: URL): RouteInventoryRoute | undefined {
   }
 
   if (url.pathname.startsWith("/products/")) {
-    return {
-      kind: "product_page",
-      source: "cta",
-      url: toCanonicalUrl(url.toString()),
-      ...(toRouteHandle(url.pathname) ? { handle: toRouteHandle(url.pathname) } : {})
-    };
+    return withHandle(
+      { kind: "product_page", source: "cta", url: toCanonicalUrl(url.toString()) },
+      url.pathname
+    );
   }
 
   if (url.pathname.startsWith("/collections/")) {
-    return {
-      kind: "collection_page",
-      source: "navigation",
-      url: toCanonicalUrl(url.toString()),
-      ...(toRouteHandle(url.pathname) ? { handle: toRouteHandle(url.pathname) } : {})
-    };
+    return withHandle(
+      { kind: "collection_page", source: "navigation", url: toCanonicalUrl(url.toString()) },
+      url.pathname
+    );
   }
 
-  return {
-    kind: "content_page",
-    source: "navigation",
-    url: toCanonicalUrl(url.toString()),
-    ...(toRouteHandle(url.pathname) ? { handle: toRouteHandle(url.pathname) } : {})
-  };
+  return withHandle(
+    { kind: "content_page", source: "navigation", url: toCanonicalUrl(url.toString()) },
+    url.pathname
+  );
 }
 
 function summarizeInventory(routes: RouteInventoryRoute[]): string {
-  const counts = routes.reduce(
-    (acc, route) => {
-      acc[route.kind] += 1;
-      return acc;
-    },
-    {
-      homepage: 0,
-      product_page: 0,
-      collection_page: 0,
-      content_page: 0
-    }
-  );
+  const counts: Record<string, number> = {
+    homepage: 0,
+    product_page: 0,
+    collection_page: 0,
+    content_page: 0
+  };
+
+  for (const route of routes) {
+    counts[route.kind] = (counts[route.kind] ?? 0) + 1;
+  }
 
   return `Discovered ${routes.length} routes (${counts.homepage} homepage, ${counts.collection_page} collections, ${counts.product_page} products, ${counts.content_page} content pages).`;
 }
 
 export class ShopifyRouteInventoryService {
-  readonly #inspector?: InspectorLike;
+  readonly #inspector: InspectorLike | undefined;
 
   constructor(inspector?: InspectorLike) {
     this.#inspector = inspector;
@@ -88,10 +85,9 @@ export class ShopifyRouteInventoryService {
   async build({ jobId, referenceUrl, inspection }: BuildRouteInventoryInput): Promise<RouteInventory> {
     const rootInspection =
       inspection ??
-      (await this.#inspector?.inspect({
-        jobId: jobId ?? "route-inventory",
-        referenceUrl
-      }));
+      (this.#inspector
+        ? await this.#inspector.inspect({ jobId: jobId ?? "route-inventory", referenceUrl })
+        : undefined);
 
     if (!rootInspection) {
       throw new Error("Route inventory requires a storefront inspection.");
@@ -100,12 +96,12 @@ export class ShopifyRouteInventoryService {
     const rootUrl = new URL(rootInspection.resolvedUrl || referenceUrl);
     const seen = new Set<string>();
     const routes: RouteInventoryRoute[] = [];
-    const limits = {
+    const limits: Record<string, number> = {
       product_page: 20,
       collection_page: 10,
       content_page: 10
-    } as const;
-    const counts = {
+    };
+    const counts: Record<string, number> = {
       product_page: 0,
       collection_page: 0,
       content_page: 0
@@ -131,13 +127,13 @@ export class ShopifyRouteInventoryService {
       }
 
       if (route.kind !== "homepage") {
-        const limit = limits[route.kind];
+        const limit = limits[route.kind] ?? 10;
 
-        if (counts[route.kind] >= limit) {
+        if ((counts[route.kind] ?? 0) >= limit) {
           return;
         }
 
-        counts[route.kind] += 1;
+        counts[route.kind] = (counts[route.kind] ?? 0) + 1;
       }
 
       seen.add(key);

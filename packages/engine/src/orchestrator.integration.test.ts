@@ -34,7 +34,78 @@ describe("createReplicationOrchestrator integration", () => {
       repository: new SqliteJobRepository(databasePath),
       runtime: {
         themeWorkspacePath,
-        previewCommand: "shopify theme dev"
+        captureRootPath: join(tempRoot, "captures"),
+        previewCommand: "shopify theme dev",
+        destinationStores: [
+          { id: "test-store", label: "Test Store", shopDomain: "test.myshopify.com" }
+        ]
+      },
+      qualificationService: {
+        async qualify() {
+          return {
+            status: "supported" as const,
+            platform: "shopify" as const,
+            referenceHost: "example.com",
+            resolvedUrl: "https://example.com/products/spring-launch",
+            qualifiedAt: new Date().toISOString(),
+            summary: "Supported source.",
+            evidence: ["window.Shopify"],
+            isPasswordProtected: false
+          };
+        }
+      },
+      captureService: {
+        async capture() {
+          return {
+            sourceUrl: "https://example.com/products/spring-launch",
+            resolvedUrl: "https://example.com/products/spring-launch",
+            referenceHost: "example.com",
+            title: "Spring Launch",
+            capturedAt: new Date().toISOString(),
+            captureBundlePath: "/tmp/bundle.json",
+            desktopScreenshotPath: "/tmp/desktop.jpg",
+            mobileScreenshotPath: "/tmp/mobile.jpg",
+            textContent: "Spring Launch product page",
+            headingOutline: ["Spring Launch"],
+            navigationLinks: [],
+            primaryCtas: [],
+            imageAssets: [],
+            styleTokens: { dominantColors: [], fontFamilies: [] },
+            routeHints: { productHandles: ["spring-launch"], collectionHandles: [] }
+          };
+        }
+      },
+      routeInventoryService: {
+        async build() {
+          return {
+            discoveredAt: new Date().toISOString(),
+            referenceHost: "example.com",
+            summary: "Discovered 1 routes.",
+            routes: [{ kind: "product_page" as const, source: "cta" as const, url: "https://example.com/products/spring-launch", handle: "spring-launch" }]
+          };
+        }
+      },
+      storefrontModelBuilder: {
+        async build() {
+          return {
+            modeledAt: new Date().toISOString(),
+            referenceHost: "example.com",
+            storeTitle: "Spring Launch",
+            summary: "Built storefront model.",
+            styleTokens: { dominantColors: [], fontFamilies: [] },
+            pages: [{ kind: "product_page" as const, url: "https://example.com/products/spring-launch", title: "Spring Launch", handle: "spring-launch" }],
+            products: [{ handle: "spring-launch", title: "Spring Launch", merchandisingRole: "Primary offer." }],
+            collections: [],
+            menus: [],
+            contentModels: [],
+            unsupportedFeatures: []
+          };
+        }
+      },
+      assetSyncService: {
+        async sync() {
+          return { syncedAt: new Date().toISOString(), summary: "Synced 0 assets.", assets: [] };
+        }
       },
       analyzer: new DeterministicPageAnalyzer(),
       mapper: new DeterministicThemeMapper(),
@@ -55,6 +126,7 @@ describe("createReplicationOrchestrator integration", () => {
 
     const handoff = await orchestrator.replicateStorefront({
       referenceUrl: "https://example.com/products/spring-launch",
+      destinationStore: "test-store",
       pageType: "product_page",
       notes: "Focus on purchase flow."
     });

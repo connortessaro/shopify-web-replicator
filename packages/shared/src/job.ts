@@ -128,7 +128,7 @@ export interface DestinationStoreProfile {
   adminTokenEnvVar?: string;
   apiVersion?: string;
   baseThemeId?: string;
-  baseThemeRole?: "MAIN" | "UNPUBLISHED" | "DEVELOPMENT";
+  baseThemeRole?: "MAIN" | "UNPUBLISHED" | "DEVELOPMENT" | undefined;
   themeNamePrefix?: string;
 }
 
