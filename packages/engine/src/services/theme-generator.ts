@@ -65,7 +65,6 @@ function renderMarketingSection(
 
     <h1>{{ section.settings.heading }}</h1>
     <p class="${sectionType}__body">{{ section.settings.body }}</p>
-    <p class="${sectionType}__meta">{{ section.settings.mapping_summary }}</p>
 
     {% if section.settings.cta_label != blank and section.settings.cta_link != blank %}
       <a class="${sectionType}__cta" href="{{ section.settings.cta_link }}">
@@ -106,17 +105,11 @@ ${renderCommerceWiringSnippet(analysis.pageType)}
     line-height: 0.95;
   }
 
-  .${sectionType}__body,
-  .${sectionType}__meta {
+  .${sectionType}__body {
     margin: 1.5rem 0 0;
     max-width: 60ch;
     font-size: 1.1rem;
     line-height: 1.5;
-  }
-
-  .${sectionType}__meta {
-    font-size: 0.95rem;
-    color: #335144;
   }
 
   .${sectionType}__cta {
@@ -154,12 +147,6 @@ ${JSON.stringify(
         default: primarySection?.body ?? analysis.summary
       },
       {
-        type: "textarea",
-        id: "mapping_summary",
-        label: "Mapping summary",
-        default: mapping.summary
-      },
-      {
         type: "text",
         id: "cta_label",
         label: "CTA label",
@@ -195,10 +182,16 @@ function renderProductSection(sectionType: string, analysis: ReferenceAnalysis, 
 
 <section class="${sectionType} full-width">
   <div class="${sectionType}__content">
-    <p class="${sectionType}__eyebrow">{{ section.settings.eyebrow }}</p>
+    {% if section.settings.eyebrow != blank %}
+      <p class="${sectionType}__eyebrow">{{ section.settings.eyebrow }}</p>
+    {% endif %}
+
+    {% if product.featured_image %}
+      {{ product.featured_image | image_url: width: 600 | image_tag: class: "${sectionType}__image" }}
+    {% endif %}
+
     <h1>{{ product.title | default: section.settings.heading }}</h1>
     <p class="${sectionType}__body">{{ section.settings.body }}</p>
-    <p class="${sectionType}__meta">{{ section.settings.mapping_summary }}</p>
 
     {% if product != blank %}
       <div class="${sectionType}__price">{{ product.price | money }}</div>
@@ -230,9 +223,15 @@ ${renderCommerceWiringSnippet(analysis.pageType)}
   }
 
   .${sectionType}__eyebrow,
-  .${sectionType}__meta,
   .${sectionType}__empty {
     color: #335144;
+  }
+
+  .${sectionType}__image {
+    max-width: 100%;
+    height: auto;
+    border-radius: 1rem;
+    margin-bottom: 1.5rem;
   }
 
   .${sectionType}__price {
@@ -275,12 +274,6 @@ ${JSON.stringify(
         default: primarySection?.body ?? analysis.summary
       },
       {
-        type: "textarea",
-        id: "mapping_summary",
-        label: "Mapping summary",
-        default: mapping.summary
-      },
-      {
         type: "text",
         id: "cta_label",
         label: "CTA label",
@@ -306,17 +299,21 @@ function renderCollectionSection(sectionType: string, analysis: ReferenceAnalysi
 
 <section class="${sectionType} full-width">
   <div class="${sectionType}__content">
-    <p class="${sectionType}__eyebrow">{{ section.settings.eyebrow }}</p>
+    {% if section.settings.eyebrow != blank %}
+      <p class="${sectionType}__eyebrow">{{ section.settings.eyebrow }}</p>
+    {% endif %}
+
     <h1>{{ collection.title | default: section.settings.heading }}</h1>
     <p class="${sectionType}__body">{{ section.settings.body }}</p>
-    <p class="${sectionType}__meta">{{ section.settings.mapping_summary }}</p>
 
     <div class="${sectionType}__grid">
       {% for product in collection.products limit: 8 %}
-        <article class="${sectionType}__card">
-          <h2>{{ product.title }}</h2>
-          <p>{{ product.price | money }}</p>
-        </article>
+        <a href="{{ product.url }}" class="${sectionType}__card-link">
+          <article class="${sectionType}__card">
+            <h2>{{ product.title }}</h2>
+            <p>{{ product.price | money }}</p>
+          </article>
+        </a>
       {% else %}
         <p class="${sectionType}__empty">Connect this template to a collection to validate the generated browsing flow.</p>
       {% endfor %}
@@ -346,13 +343,18 @@ ${renderCommerceWiringSnippet(analysis.pageType)}
     margin-top: 2rem;
   }
 
+  .${sectionType}__card-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+
   .${sectionType}__card {
     padding: 1rem;
     border-radius: 1rem;
     background: rgba(17, 49, 38, 0.06);
   }
 
-  .${sectionType}__meta,
   .${sectionType}__empty {
     color: #335144;
   }
@@ -380,12 +382,6 @@ ${JSON.stringify(
         id: "body",
         label: "Body",
         default: primarySection?.body ?? analysis.summary
-      },
-      {
-        type: "textarea",
-        id: "mapping_summary",
-        label: "Mapping summary",
-        default: mapping.summary
       }
     ]
   },

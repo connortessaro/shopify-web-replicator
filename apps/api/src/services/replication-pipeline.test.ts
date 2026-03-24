@@ -35,6 +35,7 @@ describe("ReplicationPipeline", () => {
     const repository = new SqliteJobRepository(join(dataRoot, "replicator.db"));
     const job = createReplicationJob({
       referenceUrl: "https://example.com",
+      pageType: "landing_page",
       notes: "Landing page MVP"
     });
 

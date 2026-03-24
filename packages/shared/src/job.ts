@@ -13,7 +13,7 @@ export const pipelineStages = [
 ] as const;
 
 export const stageStatuses = ["pending", "current", "complete", "failed"] as const;
-export const jobStatuses = ["queued", "in_progress", "needs_review", "completed", "failed"] as const;
+export const jobStatuses = ["in_progress", "needs_review", "failed"] as const;
 export const artifactKinds = ["section", "template", "snippet", "config"] as const;
 export const artifactStatuses = ["pending", "generated", "failed"] as const;
 export const validationStatuses = ["pending", "passed", "failed"] as const;
@@ -79,7 +79,7 @@ export const pageTypeLabels = {
 export const referenceIntakeSchema = z.object({
   referenceUrl: z.string().url(),
   pageType: z.enum(pageTypes).optional(),
-  notes: z.string().trim().min(1).optional()
+  notes: z.string().trim().min(1).max(500).optional()
 });
 
 export type PipelineStage = (typeof pipelineStages)[number];
@@ -266,10 +266,22 @@ export interface AppRuntimeConfig {
   previewCommand: string;
 }
 
+function derivePageTypeFromUrl(referenceUrl: string): PageType | undefined {
+  try {
+    const url = new URL(referenceUrl);
+    if (url.pathname === "/" || url.pathname === "") return "homepage";
+    if (url.pathname.startsWith("/products/")) return "product_page";
+    if (url.pathname.startsWith("/collections/")) return "collection_page";
+  } catch {
+    // invalid URL — fall through
+  }
+  return undefined;
+}
+
 function normalizeReferenceIntake(intake: ReferenceIntake): NormalizedReferenceIntake {
   return {
     referenceUrl: intake.referenceUrl,
-    pageType: intake.pageType ?? "landing_page",
+    pageType: intake.pageType ?? derivePageTypeFromUrl(intake.referenceUrl) ?? "landing_page",
     ...(intake.notes ? { notes: intake.notes } : {})
   };
 }

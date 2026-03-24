@@ -41,7 +41,7 @@ export function JobDetailPage({ loadJob, refreshIntervalMs = 2_000 }: JobDetailP
 
         setJob(loadedJob);
 
-        if (loadedJob.status === "queued" || loadedJob.status === "in_progress") {
+        if (loadedJob.status === "in_progress") {
           timeoutId = window.setTimeout(syncJob, refreshIntervalMs);
         }
       } catch {

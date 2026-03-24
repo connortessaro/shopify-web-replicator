@@ -10,13 +10,11 @@ import {
   type StoreSetupContentModelPlan,
   type StoreSetupMenuPlan,
   type StoreSetupPlan,
-  type StoreSetupProductPlan,
-  type ThemeMapping
+  type StoreSetupProductPlan
 } from "@shopify-web-replicator/shared";
 
 type GenerateInput = {
   analysis: ReferenceAnalysis;
-  mapping: ThemeMapping;
 };
 
 type StoreSetupGenerationResult = {
@@ -24,12 +22,13 @@ type StoreSetupGenerationResult = {
   storeSetup: StoreSetupPlan;
 };
 
-function toHandle(value: string): string {
-  return value
+function toHandle(value: string): string | undefined {
+  const handle = value
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .replace(/-{2,}/g, "-");
+  return handle || undefined;
 }
 
 function buildProducts(analysis: ReferenceAnalysis): StoreSetupProductPlan[] {
@@ -109,7 +108,7 @@ function buildMenus(
 ): StoreSetupMenuPlan[] {
   const featuredCollection = collections[0];
   const primaryProduct = products[0];
-  const homeTarget = analysis.pageType === "homepage" ? "/" : "/";
+  const homeTarget = "/";
 
   return [
     {
@@ -216,7 +215,7 @@ export class ShopifyStoreSetupGenerator {
     this.#themeWorkspacePath = themeWorkspacePath;
   }
 
-  async generate({ analysis, mapping }: GenerateInput): Promise<StoreSetupGenerationResult> {
+  async generate({ analysis }: GenerateInput): Promise<StoreSetupGenerationResult> {
     const storeSetup = createStoreSetupPlan(analysis);
     const outputPath = join(this.#themeWorkspacePath, stableStoreSetupArtifact.path);
 
@@ -229,7 +228,6 @@ export class ShopifyStoreSetupGenerator {
           sourceUrl: analysis.sourceUrl,
           pageType: analysis.pageType,
           title: analysis.title,
-          mappingSummary: mapping.summary,
           storeSetup
         },
         null,
