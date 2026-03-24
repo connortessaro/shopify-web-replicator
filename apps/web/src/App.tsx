@@ -1,6 +1,12 @@
 import { NavLink, Route, Routes } from "react-router-dom";
 
-import { loadJob, loadRecentJobs, loadRuntime, submitReference } from "./lib/api-client";
+import {
+  loadDestinationStores,
+  loadJob,
+  loadRecentJobs,
+  loadRuntime,
+  submitReference
+} from "./lib/api-client";
 import { HandoffPage, LatestHandoffPage } from "./routes/HandoffPage";
 import { IntakePage } from "./routes/IntakePage";
 import { JobDetailPage } from "./routes/JobDetailPage";
@@ -36,7 +42,13 @@ export function App() {
         <Routes>
           <Route
             path="/"
-            element={<IntakePage submitReference={submitReference} loadRecentJobs={loadRecentJobs} />}
+            element={
+              <IntakePage
+                submitReference={submitReference}
+                loadRecentJobs={loadRecentJobs}
+                loadDestinationStores={loadDestinationStores}
+              />
+            }
           />
           <Route path="/jobs/:jobId" element={<JobDetailPage loadJob={loadJob} />} />
           <Route

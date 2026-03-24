@@ -18,6 +18,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@shopify-web-replicator/shared": "workspace:*"
+    "@shopify-web-replicator/shared": "workspace:*",
+    "cheerio": "^1.1.2",
+    "playwright": "^1.52.0"
   }
 }

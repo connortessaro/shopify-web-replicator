@@ -86,6 +86,7 @@ describe("createApp", () => {
       },
       body: JSON.stringify({
         referenceUrl: "https://example.com",
+        destinationStore: "local-dev-store",
         notes: "mobile-first PDP",
         pageType: "product_page"
       })
@@ -96,17 +97,18 @@ describe("createApp", () => {
     const created = await response.json();
 
     expect(created).toMatchObject({
-      currentStage: "analysis",
+      currentStage: "source_qualification",
       status: "in_progress"
     });
     expect(enqueueJob).toHaveBeenCalledWith(created.jobId);
     await expect(repository.getById(created.jobId)).resolves.toMatchObject({
       id: created.jobId,
-      intake: {
-        referenceUrl: "https://example.com",
-        notes: "mobile-first PDP",
-        pageType: "product_page"
-      }
+        intake: {
+          referenceUrl: "https://example.com",
+          destinationStore: "local-dev-store",
+          notes: "mobile-first PDP",
+          pageType: "product_page"
+        }
     });
   });
 
@@ -127,6 +129,7 @@ describe("createApp", () => {
       },
       body: JSON.stringify({
         referenceUrl: "https://example.com/product",
+        destinationStore: "local-dev-store",
         notes: "PDP recreation"
       })
     });
@@ -137,10 +140,11 @@ describe("createApp", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       id: created.jobId,
-      intake: {
-        referenceUrl: "https://example.com/product",
-        notes: "PDP recreation"
-      }
+        intake: {
+          referenceUrl: "https://example.com/product",
+          destinationStore: "local-dev-store",
+          notes: "PDP recreation"
+        }
     });
   });
 
@@ -151,6 +155,7 @@ describe("createApp", () => {
     const repository = new SqliteJobRepository(join(dataRoot, "replicator.db"));
     const olderJob = createReplicationJob({
       referenceUrl: "https://example.com/older",
+      destinationStore: "local-dev-store",
       notes: "Older job"
     });
     olderJob.createdAt = "2026-03-20T12:00:00.000Z";
@@ -158,6 +163,7 @@ describe("createApp", () => {
 
     const newerJob = createReplicationJob({
       referenceUrl: "https://example.com/newer",
+      destinationStore: "local-dev-store",
       notes: "Newer job"
     });
     newerJob.createdAt = "2026-03-20T12:05:00.000Z";
@@ -180,7 +186,8 @@ describe("createApp", () => {
         status: newerJob.status,
         currentStage: newerJob.currentStage,
         createdAt: newerJob.createdAt,
-        pageType: "landing_page"
+        pageType: "landing_page",
+        destinationStore: "local-dev-store"
       }
     ]);
   });
@@ -189,7 +196,15 @@ describe("createApp", () => {
     const app = createApp({
       runtime: {
         themeWorkspacePath: "/tmp/theme-workspace",
-        previewCommand: "shopify theme dev"
+        captureRootPath: "/tmp/captures",
+        previewCommand: "shopify theme dev",
+        destinationStores: [
+          {
+            id: "local-dev-store",
+            label: "Local Dev Store",
+            shopDomain: "local-dev-store.myshopify.com"
+          }
+        ]
       }
     } as never);
 
@@ -198,7 +213,62 @@ describe("createApp", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       themeWorkspacePath: "/tmp/theme-workspace",
-      previewCommand: "shopify theme dev"
+      captureRootPath: "/tmp/captures",
+      previewCommand: "shopify theme dev",
+      destinationStores: [
+        {
+          id: "local-dev-store",
+          label: "Local Dev Store",
+          shopDomain: "local-dev-store.myshopify.com"
+        }
+      ]
+    });
+  });
+
+  it("returns configured destination stores for operator and MCP discovery", async () => {
+    const app = createApp({
+      runtime: {
+        themeWorkspacePath: "/tmp/theme-workspace",
+        captureRootPath: "/tmp/captures",
+        previewCommand: "shopify theme dev",
+        destinationStores: [
+          {
+            id: "local-dev-store",
+            label: "Local Dev Store",
+            shopDomain: "local-dev-store.myshopify.com"
+          }
+        ]
+      }
+    } as never);
+
+    const response = await app.request("/api/destination-stores");
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual([
+      {
+        id: "local-dev-store",
+        label: "Local Dev Store",
+        shopDomain: "local-dev-store.myshopify.com"
+      }
+    ]);
+  });
+
+  it("returns validation issues for intake payloads missing a destination store", async () => {
+    const app = createApp();
+
+    const response = await app.request("/api/jobs", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        referenceUrl: "https://example.com"
+      })
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Invalid intake payload"
     });
   });
 
@@ -218,7 +288,8 @@ describe("createApp", () => {
         "content-type": "application/json"
       },
       body: JSON.stringify({
-        referenceUrl: "not-a-url"
+        referenceUrl: "not-a-url",
+        destinationStore: "local-dev-store"
       })
     });
 

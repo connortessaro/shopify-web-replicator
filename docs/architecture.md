@@ -7,7 +7,7 @@ This repo is built around a standalone MCP server that agents can call directly.
 ## Boundaries
 
 - `apps/mcp` owns the primary agent-facing stdio server and MCP tool registration.
-- `packages/engine` owns runtime config, SQLite persistence, orchestration, analysis, mapping, generation, store setup planning, commerce wiring, validation, and integration reporting.
+- `packages/engine` owns runtime config, destination store discovery, SQLite persistence, browser-backed source qualification, rendered reference capture, orchestration, analysis, mapping, generation, store setup planning, commerce wiring, validation, and integration reporting.
 - `apps/api` owns the companion HTTP surface and delegates job creation and execution to the engine.
 - `apps/web` owns the companion human review surface and consumes the API.
 - `packages/shared` owns the contract shared across MCP, API, web, and engine.
@@ -16,18 +16,20 @@ This repo is built around a standalone MCP server that agents can call directly.
 ## Primary MCP flow
 
 1. An MCP client spawns `apps/mcp` over stdio.
-2. The client calls `replicate_storefront` with `referenceUrl`, optional `pageType`, and optional `notes`.
+2. The client optionally calls `list_destination_stores`, then calls `replicate_storefront` with `referenceUrl`, `destinationStore`, optional `pageType`, and optional `notes`.
 3. `apps/mcp` delegates to `packages/engine`.
 4. The engine creates a durable SQLite job and runs the deterministic pipeline synchronously for the tool call.
-5. `analysis` derives a typed summary from the reference URL, explicit page type, and notes.
-6. `mapping` converts that analysis into Shopify-native section and template intent.
-7. `theme_generation` writes the stable page-type-specific Liquid section and JSON template outputs.
-8. `store_setup` writes the stable deterministic store setup plan.
-9. `commerce_wiring` writes the stable deterministic commerce snippet.
-10. `validation` runs after all generated artifacts are written so the result reflects the final workspace.
-11. `integration_check` writes the stable deterministic integration report and verifies generated artifacts on disk, commerce entrypoints, section snippet rendering, checkout handoff markup, and final validation state.
-12. `review` becomes the terminal human handoff stage when the run succeeds; failures remain structured job results instead of transport failures.
-13. The tool result returns the full job snapshot, artifact metadata, runtime handoff info, and deterministic next actions.
+5. `source_qualification` uses Playwright-backed inspection to verify that the source is a public Shopify storefront, detect password protection, and capture the resolved URL and HTTP status before more work is done.
+6. `capture` reuses the browser inspection to derive reusable reference signals such as headings, navigation links, primary CTAs, image assets, text content, style tokens, route hints, and writes a disk-backed capture bundle with desktop/mobile screenshots.
+7. `analysis` derives a typed summary from the qualified source, captured signals, explicit page type, and notes.
+8. `mapping` converts that analysis into Shopify-native section and template intent.
+9. `theme_generation` writes the stable page-type-specific Liquid section and JSON template outputs.
+10. `store_setup` writes the stable deterministic store setup plan.
+11. `commerce_wiring` writes the stable deterministic commerce snippet.
+12. `validation` runs after all generated artifacts are written so the result reflects the final workspace.
+13. `integration_check` writes the stable deterministic integration report and verifies generated artifacts on disk, commerce entrypoints, section snippet rendering, checkout handoff markup, and final validation state.
+14. `review` becomes the terminal human handoff stage when the run succeeds; failures remain structured job results instead of transport failures.
+15. The tool result returns the full job snapshot, destination store metadata, artifact metadata, runtime handoff info, and deterministic next actions.
 
 ## Companion surfaces
 
@@ -36,24 +38,43 @@ This repo is built around a standalone MCP server that agents can call directly.
 - `POST /api/jobs` creates a durable job through the shared engine contract.
 - `GET /api/jobs/:jobId` returns the full persisted job payload.
 - `GET /api/jobs?limit=<n>` returns recent job summaries.
-- `GET /api/runtime` returns the effective theme workspace path and preview command.
+- `GET /api/runtime` returns the effective theme workspace path, capture root path, preview command, and configured destination stores.
+- `GET /api/destination-stores` returns the configured destination store profiles directly for MCP and UI discovery.
 
 ### Web UI
 
 - Provides optional manual intake.
 - Polls persisted jobs until they reach `needs_review` or `failed`.
-- Surfaces generated artifacts, validation, integration, and runtime handoff data for operator QA.
+- Requires a configured destination store at intake time.
+- Surfaces source qualification, reference capture, generated artifacts, validation, integration, and runtime handoff data for operator QA.
 
 ## Runtime defaults
 
 - Job database path: `.data/replicator.db`
 - Theme workspace path: `packages/theme-workspace`
+- Capture root path: `.data/captures`
 - Preview command: `shopify theme dev`
+- Destination store config path: `config/destination-stores.json`
 
 Overrides:
 
 - `REPLICATOR_DB_PATH`
 - `THEME_WORKSPACE_PATH`
+- `REPLICATOR_CAPTURE_ROOT`
+- `REPLICATOR_DESTINATION_STORES_PATH`
+
+The destination store config is a local JSON array of objects shaped like:
+
+```json
+[
+  {
+    "id": "local-dev-store",
+    "label": "Local Dev Store",
+    "shopDomain": "local-dev-store.myshopify.com",
+    "themeNamePrefix": "Replicator"
+  }
+]
+```
 
 ## Stable generated outputs
 
@@ -75,3 +96,9 @@ Overrides:
 - `homepage`
 - `product_page`
 - `collection_page`
+
+## Current capture boundary
+
+- Source qualification and capture use a local Playwright browser session and currently support public Shopify storefront detection only.
+- The capture bundle is persisted on disk under the configured capture root instead of inside SQLite blobs.
+- The captured snapshot now includes screenshots, style tokens, and route hints, but it is still scoped to deterministic single-route analysis rather than full multi-page parity.

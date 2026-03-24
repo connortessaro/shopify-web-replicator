@@ -6,6 +6,10 @@ import type { ReplicationJob } from "@shopify-web-replicator/shared";
 
 import { JobDetailPage } from "./JobDetailPage";
 
+function hasTextContent(pattern: RegExp) {
+  return (_content: string, element: Element | null) => Boolean(element?.textContent && pattern.test(element.textContent));
+}
+
 function createJob(overrides: Partial<ReplicationJob> = {}): ReplicationJob {
   return {
     id: "job_123",
@@ -13,8 +17,8 @@ function createJob(overrides: Partial<ReplicationJob> = {}): ReplicationJob {
     currentStage: "review",
     intake: {
       referenceUrl: "https://example.com/collection",
-      notes: "Collection page rebuild",
-      pageType: "landing_page"
+      destinationStore: "local-dev-store",
+      notes: "Collection page rebuild"
     },
     stages: [
       {
@@ -23,6 +27,20 @@ function createJob(overrides: Partial<ReplicationJob> = {}): ReplicationJob {
         summary: "Reference intake accepted.",
         startedAt: "2026-03-20T12:00:00.000Z",
         completedAt: "2026-03-20T12:00:00.000Z"
+      },
+      {
+        name: "source_qualification",
+        status: "complete",
+        summary: "Verified a supported public Shopify storefront source.",
+        startedAt: "2026-03-20T12:00:00.000Z",
+        completedAt: "2026-03-20T12:00:15.000Z"
+      },
+      {
+        name: "capture",
+        status: "complete",
+        summary: "Captured Example Store with 3 navigation links, 1 CTAs, and 2 images.",
+        startedAt: "2026-03-20T12:00:15.000Z",
+        completedAt: "2026-03-20T12:00:30.000Z"
       },
       {
         name: "analysis",
@@ -48,7 +66,7 @@ function createJob(overrides: Partial<ReplicationJob> = {}): ReplicationJob {
       {
         name: "store_setup",
         status: "complete",
-        summary: "Deterministic store setup plan is ready for operator review.",
+        summary: "Import-ready store setup bundle is ready for operator review.",
         startedAt: "2026-03-20T12:03:00.000Z",
         completedAt: "2026-03-20T12:04:00.000Z"
       },
@@ -60,16 +78,23 @@ function createJob(overrides: Partial<ReplicationJob> = {}): ReplicationJob {
         completedAt: "2026-03-20T12:05:00.000Z"
       },
       {
+        name: "validation",
+        status: "complete",
+        summary: "Theme check passed.",
+        startedAt: "2026-03-20T12:05:00.000Z",
+        completedAt: "2026-03-20T12:05:30.000Z"
+      },
+      {
         name: "integration_check",
         status: "complete",
         summary: "Deterministic integration report is ready for operator review.",
-        startedAt: "2026-03-20T12:05:00.000Z",
+        startedAt: "2026-03-20T12:05:30.000Z",
         completedAt: "2026-03-20T12:06:00.000Z"
       },
       {
         name: "review",
         status: "current",
-        summary: "Generated theme files, store setup plan, commerce wiring, and integration report are ready for operator QA.",
+        summary: "Generated theme files, store setup bundle, commerce wiring, and integration report are ready for operator QA.",
         startedAt: "2026-03-20T12:06:00.000Z"
       }
     ],
@@ -92,7 +117,7 @@ function createJob(overrides: Partial<ReplicationJob> = {}): ReplicationJob {
         kind: "config",
         path: "config/generated-store-setup.json",
         status: "generated",
-        description: "Deterministic store setup plan covering products, collections, menus, and structured content",
+        description: "Import-ready store setup bundle covering products, collections, menus, and structured content",
         lastWrittenAt: "2026-03-20T12:04:00.000Z"
       },
       {
@@ -110,6 +135,55 @@ function createJob(overrides: Partial<ReplicationJob> = {}): ReplicationJob {
         lastWrittenAt: "2026-03-20T12:06:00.000Z"
       }
     ],
+    sourceQualification: {
+      status: "supported",
+      platform: "shopify",
+      referenceHost: "example.com",
+      resolvedUrl: "https://example.com/collection",
+      qualifiedAt: "2026-03-20T12:00:15.000Z",
+      summary: "Verified a supported public Shopify storefront source.",
+      evidence: ["window.Shopify", "cdn.shopify.com"],
+      httpStatus: 200,
+      isPasswordProtected: false
+    },
+    capture: {
+      sourceUrl: "https://example.com/collection",
+      resolvedUrl: "https://example.com/collection",
+      referenceHost: "example.com",
+      title: "Example Store",
+      description: "Captured the hero, top navigation, and primary collection CTA.",
+      capturedAt: "2026-03-20T12:00:30.000Z",
+      captureBundlePath: "/tmp/captures/job_123/capture-bundle.json",
+      desktopScreenshotPath: "/tmp/captures/job_123/desktop.jpg",
+      mobileScreenshotPath: "/tmp/captures/job_123/mobile.jpg",
+      textContent: "Example Store Featured picks",
+      headingOutline: ["Example Store", "Featured picks"],
+      navigationLinks: [
+        { label: "Shop", href: "https://example.com/collections/shop" },
+        { label: "About", href: "https://example.com/about" },
+        { label: "Journal", href: "https://example.com/journal" }
+      ],
+      primaryCtas: [{ label: "Shop collection", href: "https://example.com/collections/shop" }],
+      imageAssets: [
+        { src: "https://example.com/cdn/hero.jpg", alt: "Hero" },
+        { src: "https://example.com/cdn/grid.jpg", alt: "Grid" }
+      ],
+      styleTokens: {
+        dominantColors: ["rgb(255, 255, 255)", "rgb(17, 24, 39)"],
+        fontFamilies: ["Inter", "Georgia"],
+        bodyTextColor: "rgb(17, 24, 39)",
+        pageBackgroundColor: "rgb(255, 255, 255)",
+        primaryButtonBackgroundColor: "rgb(17, 24, 39)",
+        primaryButtonTextColor: "rgb(255, 255, 255)",
+        linkColor: "rgb(37, 99, 235)"
+      },
+      routeHints: {
+        productHandles: ["example-store-primary"],
+        collectionHandles: ["shop"],
+        cartPath: "/cart",
+        checkoutPath: "/checkout"
+      }
+    },
     analysis: {
       sourceUrl: "https://example.com/collection",
       referenceHost: "example.com",
@@ -143,7 +217,8 @@ function createJob(overrides: Partial<ReplicationJob> = {}): ReplicationJob {
     storeSetup: {
       plannedAt: "2026-03-20T12:04:00.000Z",
       configPath: "config/generated-store-setup.json",
-      summary: "Prepared deterministic store setup plan for Example Store.",
+      importBundlePath: "config/generated-store-setup.json",
+      summary: "Prepared import-ready store setup bundle for Example Store.",
       products: [
         {
           handle: "example-store-primary",
@@ -242,18 +317,29 @@ describe("JobDetailPage", () => {
       expect(loadJob).toHaveBeenCalledWith(job.id);
     });
 
+    expect(await screen.findByText(/reference capture/i)).toBeInTheDocument();
+    expect(screen.getByText(/source qualification/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/verified a supported public shopify storefront source/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(hasTextContent(/captured example store from example\.com/i)).length).toBeGreaterThan(0);
+    expect(screen.getByText(/captured the hero, top navigation, and primary collection cta/i)).toBeInTheDocument();
     expect(await screen.findByText(/analysis summary/i)).toBeInTheDocument();
     expect(screen.getByText(/detected a hero-first landing page/i)).toBeInTheDocument();
     expect(screen.getByText(/mapped example store into the stable generated reference section/i)).toBeInTheDocument();
-    expect(screen.getByText(/prepared deterministic store setup plan for example store/i)).toBeInTheDocument();
+    expect(screen.getByText(/prepared import-ready store setup bundle for example store/i)).toBeInTheDocument();
     expect(screen.getAllByText(/example-store-primary/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/prepared deterministic commerce wiring plan for example store/i)).toBeInTheDocument();
     expect(screen.getAllByText(/snippets\/generated-commerce-wiring\.liquid/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/all deterministic integration checks passed for example store/i)).toBeInTheDocument();
     expect(screen.getAllByText(/config\/generated-integration-report\.json/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/theme check passed/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/theme check passed/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/primary generated landing section output/i)).toBeInTheDocument();
     expect(screen.getByText(/reference intake accepted/i)).toBeInTheDocument();
+    expect(screen.getByText(/captured example store with 3 navigation links, 1 ctas, and 2 images/i)).toBeInTheDocument();
+    expect(screen.getAllByText(hasTextContent(/destination store: local-dev-store/i)).length).toBeGreaterThan(0);
+    expect(screen.getByText(/capture bundle:/i)).toBeInTheDocument();
+    expect(screen.getByText(/\/tmp\/captures\/job_123\/desktop\.jpg/i)).toBeInTheDocument();
+    expect(screen.getByText(/inter, georgia/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/example-store-primary/i).length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: /review theme workspace handoff/i })).toHaveAttribute(
       "href",
       `/jobs/${job.id}/handoff`
@@ -271,6 +357,20 @@ describe("JobDetailPage", () => {
           summary: "Reference intake accepted.",
           startedAt: "2026-03-20T12:00:00.000Z",
           completedAt: "2026-03-20T12:00:00.000Z"
+        },
+        {
+          name: "source_qualification",
+          status: "complete",
+          summary: "Verified a supported public Shopify storefront source.",
+          startedAt: "2026-03-20T12:00:00.000Z",
+          completedAt: "2026-03-20T12:00:15.000Z"
+        },
+        {
+          name: "capture",
+          status: "complete",
+          summary: "Captured Example Store with 3 navigation links, 1 CTAs, and 2 images.",
+          startedAt: "2026-03-20T12:00:15.000Z",
+          completedAt: "2026-03-20T12:00:30.000Z"
         },
         {
           name: "analysis",
@@ -301,6 +401,11 @@ describe("JobDetailPage", () => {
           summary: "Waiting for commerce wiring."
         },
         {
+          name: "validation",
+          status: "pending",
+          summary: "Waiting for validation."
+        },
+        {
           name: "integration_check",
           status: "pending",
           summary: "Waiting for integration check."
@@ -311,6 +416,7 @@ describe("JobDetailPage", () => {
           summary: "Waiting for review."
         }
       ],
+      generation: undefined,
       validation: {
         status: "pending",
         summary: "Theme validation has not run yet."
@@ -340,7 +446,7 @@ describe("JobDetailPage", () => {
     expect(
       (
         await screen.findAllByText(
-          /generated theme files, store setup plan, commerce wiring, and integration report are ready for operator qa/i
+          /generated theme files, store setup bundle, commerce wiring, and integration report are ready for operator qa/i
         )
       ).length
     ).toBeGreaterThan(0);
@@ -354,6 +460,7 @@ describe("JobDetailPage", () => {
         stage: "mapping",
         message: "Mapping failed"
       },
+      mapping: undefined,
       validation: {
         status: "pending",
         summary: "Theme validation has not run yet."

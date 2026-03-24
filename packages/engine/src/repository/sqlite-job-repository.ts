@@ -16,6 +16,7 @@ type StoredJobSummaryRow = {
   current_stage: ReplicationJobSummary["currentStage"];
   created_at: string;
   page_type: ReplicationJobSummary["pageType"];
+  destination_store: ReplicationJobSummary["destinationStore"];
 };
 
 export class SqliteJobRepository implements JobRepository {
@@ -92,7 +93,8 @@ export class SqliteJobRepository implements JobRepository {
       this.#database
         .prepare(
           `
-            SELECT id, status, current_stage, page_type, created_at
+            SELECT id, status, current_stage, page_type, created_at,
+              json_extract(payload, '$.intake.destinationStore') AS destination_store
             FROM replication_jobs
             ORDER BY created_at DESC
             LIMIT ?
@@ -104,7 +106,8 @@ export class SqliteJobRepository implements JobRepository {
       status: row.status,
       currentStage: row.current_stage,
       createdAt: row.created_at,
-      pageType: row.page_type
+      pageType: row.page_type,
+      destinationStore: row.destination_store
     }));
   }
 }

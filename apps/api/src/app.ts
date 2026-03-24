@@ -45,7 +45,8 @@ export function createApp(options: CreateAppOptions = {}) {
         currentStage: job.currentStage,
         status: job.status,
         createdAt: job.createdAt,
-        pageType: job.intake.pageType
+        pageType: job.intake.pageType,
+        destinationStore: job.intake.destinationStore
       };
     });
   const enqueueJob = options.enqueueJob ?? (async () => undefined);
@@ -126,6 +127,10 @@ export function createApp(options: CreateAppOptions = {}) {
 
   app.get("/api/runtime", (context) => {
     return context.json(runtime);
+  });
+
+  app.get("/api/destination-stores", (context) => {
+    return context.json(runtime.destinationStores);
   });
 
   return app;

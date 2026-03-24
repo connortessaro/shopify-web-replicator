@@ -91,6 +91,9 @@ export function JobDetailPage({ loadJob, refreshIntervalMs = 2_000 }: JobDetailP
         <p className="lede">
           Page type: <strong>{pageTypeLabels[job.intake.pageType ?? "landing_page"]}</strong>
         </p>
+        <p className="lede">
+          Destination store: <strong>{job.intake.destinationStore}</strong>
+        </p>
         <p>{job.intake.notes ?? "No operator notes were added to this job."}</p>
         {job.error ? (
           <div className="job-alert job-alert--error">
@@ -115,6 +118,114 @@ export function JobDetailPage({ loadJob, refreshIntervalMs = 2_000 }: JobDetailP
           ))}
         </ul>
       </div>
+
+      {job.sourceQualification ? (
+        <div className="panel stack">
+          <h2>Source qualification</h2>
+          <p>{job.sourceQualification.summary}</p>
+          <p className="lede">
+            Qualification status: <strong>{job.sourceQualification.status}</strong>
+          </p>
+          <p className="lede">
+            Platform: <strong>{job.sourceQualification.platform}</strong>
+          </p>
+          <p className="lede">
+            Resolved source: <strong>{job.sourceQualification.resolvedUrl}</strong>
+          </p>
+          {job.sourceQualification.httpStatus !== undefined ? (
+            <p className="lede">
+              HTTP status: <strong>{job.sourceQualification.httpStatus}</strong>
+            </p>
+          ) : null}
+          {job.sourceQualification.failureCode ? (
+            <p className="lede">
+              Failure code: <strong>{job.sourceQualification.failureCode}</strong>
+            </p>
+          ) : null}
+          {job.sourceQualification.failureReason ? <p>{job.sourceQualification.failureReason}</p> : null}
+          {job.sourceQualification.evidence.length > 0 ? (
+            <ul className="artifact-list">
+              {job.sourceQualification.evidence.map((evidence) => (
+                <li key={evidence}>
+                  <span>evidence</span>
+                  <strong>{evidence}</strong>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+
+      {job.capture ? (
+        <div className="panel stack">
+          <h2>Reference capture</h2>
+          <p>
+            Captured <strong>{job.capture.title}</strong> from {job.capture.referenceHost}.
+          </p>
+          <p className="lede">
+            Resolved URL: <strong>{job.capture.resolvedUrl}</strong>
+          </p>
+          <p className="lede">
+            Captured at: <strong>{formatTimestamp(job.capture.capturedAt)}</strong>
+          </p>
+          <p className="lede">
+            Capture bundle: <strong>{job.capture.captureBundlePath}</strong>
+          </p>
+          <p className="lede">
+            Desktop screenshot: <strong>{job.capture.desktopScreenshotPath}</strong>
+          </p>
+          <p className="lede">
+            Mobile screenshot: <strong>{job.capture.mobileScreenshotPath}</strong>
+          </p>
+          {job.capture.description ? <p>{job.capture.description}</p> : null}
+          <ul className="artifact-list">
+            <li>
+              <span>headings</span>
+              <strong>{job.capture.headingOutline.length}</strong>
+            </li>
+            <li>
+              <span>navigation links</span>
+              <strong>{job.capture.navigationLinks.length}</strong>
+            </li>
+            <li>
+              <span>primary CTAs</span>
+              <strong>{job.capture.primaryCtas.length}</strong>
+            </li>
+            <li>
+              <span>images</span>
+              <strong>{job.capture.imageAssets.length}</strong>
+            </li>
+          </ul>
+          {job.capture.headingOutline.length > 0 ? (
+            <ul className="artifact-list">
+              {job.capture.headingOutline.map((heading) => (
+                <li key={heading}>
+                  <span>heading</span>
+                  <strong>{heading}</strong>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <ul className="artifact-list">
+            <li>
+              <span>fonts</span>
+              <strong>{job.capture.styleTokens.fontFamilies.join(", ") || "None detected"}</strong>
+            </li>
+            <li>
+              <span>dominant colors</span>
+              <strong>{job.capture.styleTokens.dominantColors.join(", ") || "None detected"}</strong>
+            </li>
+            <li>
+              <span>product handles</span>
+              <strong>{job.capture.routeHints.productHandles.join(", ") || "None detected"}</strong>
+            </li>
+            <li>
+              <span>collection handles</span>
+              <strong>{job.capture.routeHints.collectionHandles.join(", ") || "None detected"}</strong>
+            </li>
+          </ul>
+        </div>
+      ) : null}
 
       {job.analysis ? (
         <div className="panel stack">
@@ -151,10 +262,13 @@ export function JobDetailPage({ loadJob, refreshIntervalMs = 2_000 }: JobDetailP
 
       {job.storeSetup ? (
         <div className="panel stack">
-          <h2>Store setup plan</h2>
+          <h2>Store setup bundle</h2>
           <p>{job.storeSetup.summary}</p>
           <p className="lede">
             Config path: <strong>{job.storeSetup.configPath}</strong>
+          </p>
+          <p className="lede">
+            Import bundle path: <strong>{job.storeSetup.importBundlePath}</strong>
           </p>
           <ul className="artifact-list">
             {job.storeSetup.products.map((product) => (

@@ -1,6 +1,14 @@
 import type {
+  CommerceWiringPlan,
+  PageType,
   PipelineStage,
-  ReplicationJob
+  ReferenceCapture,
+  ReferenceAnalysis,
+  ReplicationJob,
+  SourceQualification,
+  StoreSetupPlan,
+  ThemeCheckResult,
+  ThemeMapping
 } from "@shopify-web-replicator/shared";
 import {
   stableCommerceArtifact,
@@ -9,18 +17,82 @@ import {
 } from "@shopify-web-replicator/shared";
 
 import type { JobRepository } from "../repository/in-memory-job-repository.js";
-import type {
-  Analyzer,
-  CommerceGenerator,
-  Generator,
-  IntegrationGenerator,
-  Mapper,
-  StoreSetupGenerator,
-  ThemeValidator
-} from "./types.js";
+
+type Analyzer = {
+  analyze(input: {
+    referenceUrl: string;
+    pageType?: PageType;
+    notes?: string;
+    capture?: ReferenceCapture;
+  }): Promise<ReferenceAnalysis>;
+};
+
+type Mapper = {
+  map(input: { analysis: ReferenceAnalysis; referenceUrl: string; notes?: string }): Promise<ThemeMapping>;
+};
+
+type CaptureService = {
+  capture(input: { jobId: string; referenceUrl: string }): Promise<ReferenceCapture>;
+};
+
+type QualificationService = {
+  qualify(input: { jobId: string; referenceUrl: string }): Promise<SourceQualification>;
+};
+
+type Generator = {
+  generate(input: {
+    analysis: ReferenceAnalysis;
+    mapping: ThemeMapping;
+  }): Promise<{
+    artifacts: ReplicationJob["artifacts"];
+    generation: NonNullable<ReplicationJob["generation"]>;
+  }>;
+};
+
+type ThemeValidator = {
+  validate(): Promise<ThemeCheckResult>;
+};
+
+type StoreSetupGenerator = {
+  generate(input: {
+    analysis: ReferenceAnalysis;
+    mapping: ThemeMapping;
+  }): Promise<{
+    artifact: ReplicationJob["artifacts"][number];
+    storeSetup: StoreSetupPlan;
+  }>;
+};
+
+type CommerceGenerator = {
+  generate(input: {
+    analysis: ReferenceAnalysis;
+    mapping: ThemeMapping;
+    storeSetup: StoreSetupPlan;
+  }): Promise<{
+    artifact: ReplicationJob["artifacts"][number];
+    commerce: CommerceWiringPlan;
+  }>;
+};
+
+type IntegrationGenerator = {
+  generate(input: {
+    analysis: ReferenceAnalysis;
+    mapping: ThemeMapping;
+    generation: NonNullable<ReplicationJob["generation"]>;
+    storeSetup: StoreSetupPlan;
+    commerce: CommerceWiringPlan;
+    artifacts: ReplicationJob["artifacts"];
+    validation: ThemeCheckResult;
+  }): Promise<{
+    artifact: ReplicationJob["artifacts"][number];
+    integration: NonNullable<ReplicationJob["integration"]>;
+  }>;
+};
 
 type ReplicationPipelineOptions = {
   repository: JobRepository;
+  qualificationService: QualificationService;
+  captureService: CaptureService;
   analyzer: Analyzer;
   mapper: Mapper;
   generator: Generator;
@@ -77,6 +149,8 @@ function failStage(job: ReplicationJob, stageName: PipelineStage, timestamp: str
 
 export class ReplicationPipeline {
   readonly #repository: JobRepository;
+  readonly #qualificationService: QualificationService;
+  readonly #captureService: CaptureService;
   readonly #analyzer: Analyzer;
   readonly #mapper: Mapper;
   readonly #generator: Generator;
@@ -87,6 +161,8 @@ export class ReplicationPipeline {
 
   constructor(options: ReplicationPipelineOptions) {
     this.#repository = options.repository;
+    this.#qualificationService = options.qualificationService;
+    this.#captureService = options.captureService;
     this.#analyzer = options.analyzer;
     this.#mapper = options.mapper;
     this.#generator = options.generator;
@@ -104,10 +180,41 @@ export class ReplicationPipeline {
     }
 
     try {
+      const sourceQualification = await this.#qualificationService.qualify({
+        jobId: job.id,
+        referenceUrl: job.intake.referenceUrl
+      });
+      job.sourceQualification = sourceQualification;
+
+      if (sourceQualification.status !== "supported") {
+        throw new Error(sourceQualification.summary);
+      }
+
+      completeStage(job, "source_qualification", sourceQualification.qualifiedAt, sourceQualification.summary);
+      startStage(job, "capture", sourceQualification.qualifiedAt, "Capturing reference page structure and content.");
+      job.updatedAt = sourceQualification.qualifiedAt;
+      await this.#repository.save(job);
+
+      const capture = await this.#captureService.capture({
+        jobId: job.id,
+        referenceUrl: job.intake.referenceUrl
+      });
+      job.capture = capture;
+      completeStage(
+        job,
+        "capture",
+        capture.capturedAt,
+        `Captured ${capture.title} with ${capture.navigationLinks.length} navigation links, ${capture.primaryCtas.length} CTAs, and ${capture.imageAssets.length} images.`
+      );
+      startStage(job, "analysis", capture.capturedAt, "Analyzing captured reference structure and content.");
+      job.updatedAt = capture.capturedAt;
+      await this.#repository.save(job);
+
       const analysis = await this.#analyzer.analyze({
         referenceUrl: job.intake.referenceUrl,
         pageType: job.intake.pageType,
-        ...(job.intake.notes ? { notes: job.intake.notes } : {})
+        ...(job.intake.notes ? { notes: job.intake.notes } : {}),
+        capture
       });
       job.analysis = analysis;
       completeStage(job, "analysis", analysis.analyzedAt, analysis.summary);
@@ -133,16 +240,16 @@ export class ReplicationPipeline {
       });
       job.generation = generation;
       completeStage(job, "theme_generation", generation.generatedAt, "Stable theme outputs generated successfully.");
-      startStage(job, "store_setup", generation.generatedAt, "Preparing deterministic store setup plan.");
+      startStage(job, "store_setup", generation.generatedAt, "Preparing import-ready store setup bundle.");
       job.updatedAt = generation.generatedAt;
       await this.#repository.save(job);
 
-      const { artifact, storeSetup } = await this.#storeSetupGenerator.generate({ analysis });
+      const { artifact, storeSetup } = await this.#storeSetupGenerator.generate({ analysis, mapping });
       job.storeSetup = storeSetup;
       job.artifacts = job.artifacts.map((existingArtifact) =>
         existingArtifact.path === artifact.path ? artifact : existingArtifact
       );
-      completeStage(job, "store_setup", storeSetup.plannedAt, "Deterministic store setup plan is ready for operator review.");
+      completeStage(job, "store_setup", storeSetup.plannedAt, "Import-ready store setup bundle is ready for operator review.");
       startStage(job, "commerce_wiring", storeSetup.plannedAt, "Preparing deterministic commerce wiring.");
       job.updatedAt = storeSetup.plannedAt;
       await this.#repository.save(job);
@@ -164,14 +271,12 @@ export class ReplicationPipeline {
       const validation = await this.#themeValidator.validate();
       job.validation = validation;
 
-      const validationTimestamp = validation.checkedAt ?? commerce.plannedAt;
-
       if (validation.status === "failed") {
-        failStage(job, "validation", validationTimestamp, validation.summary);
-      } else {
-        completeStage(job, "validation", validationTimestamp, validation.summary);
+        throw new Error(validation.summary);
       }
 
+      const validationTimestamp = validation.checkedAt ?? commerce.plannedAt;
+      completeStage(job, "validation", validationTimestamp, validation.summary);
       startStage(job, "integration_check", validationTimestamp, "Preparing deterministic integration report.");
       job.updatedAt = validationTimestamp;
       await this.#repository.save(job);
@@ -191,10 +296,6 @@ export class ReplicationPipeline {
       );
       job.updatedAt = integration.checkedAt;
 
-      if (validation.status === "failed") {
-        throw new Error(validation.summary);
-      }
-
       if (integration.status === "failed") {
         throw new Error(integration.summary);
       }
@@ -209,7 +310,7 @@ export class ReplicationPipeline {
         job,
         "review",
         integration.checkedAt,
-        "Generated theme files, store setup plan, commerce wiring, and integration report are ready for operator QA."
+        "Generated theme files, store setup bundle, commerce wiring, and integration report are ready for operator QA."
       );
       job.status = "needs_review";
       job.updatedAt = integration.checkedAt;

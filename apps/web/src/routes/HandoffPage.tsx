@@ -96,12 +96,19 @@ export function HandoffPage({ loadJob, loadRuntime }: HandoffPageProps) {
         <p className="lede">
           Page type: <strong>{pageTypeLabels[job.intake.pageType ?? "landing_page"]}</strong>
         </p>
+        <p className="lede">
+          Destination store: <strong>{job.intake.destinationStore}</strong>
+        </p>
       </div>
 
       <dl className="handoff-grid">
         <div>
           <dt>Workspace path</dt>
           <dd>{runtime.themeWorkspacePath}</dd>
+        </div>
+        <div>
+          <dt>Capture root</dt>
+          <dd>{runtime.captureRootPath}</dd>
         </div>
         <div>
           <dt>Preview command</dt>
@@ -113,9 +120,76 @@ export function HandoffPage({ loadJob, loadRuntime }: HandoffPageProps) {
         </div>
         <div>
           <dt>Review expectation</dt>
-          <dd>Check layout parity, store setup scope, commerce wiring, and the integration report before preview or publish.</dd>
+          <dd>Check layout parity, the import-ready store setup bundle, commerce wiring, and the integration report before preview or publish.</dd>
         </div>
       </dl>
+
+      {job.capture ? (
+        <div className="stack">
+          {job.sourceQualification ? (
+            <>
+              <h2>Source qualification</h2>
+              <p>{job.sourceQualification.summary}</p>
+              <p>Platform: {job.sourceQualification.platform}</p>
+              {job.sourceQualification.httpStatus !== undefined ? (
+                <p>HTTP status: {job.sourceQualification.httpStatus}</p>
+              ) : null}
+              {job.sourceQualification.failureCode ? (
+                <p>Failure code: {job.sourceQualification.failureCode}</p>
+              ) : null}
+              {job.sourceQualification.failureReason ? <p>{job.sourceQualification.failureReason}</p> : null}
+            </>
+          ) : null}
+
+          <h2>Reference capture</h2>
+          <p>
+            Captured <strong>{job.capture.title}</strong> from {job.capture.referenceHost}.
+          </p>
+          <p>Resolved URL: {job.capture.resolvedUrl}</p>
+          <p>Captured at: {formatTimestamp(job.capture.capturedAt)}</p>
+          <p>Capture bundle: {job.capture.captureBundlePath}</p>
+          <p>Desktop screenshot: {job.capture.desktopScreenshotPath}</p>
+          <p>Mobile screenshot: {job.capture.mobileScreenshotPath}</p>
+          <ul className="artifact-list">
+            <li>
+              <div className="artifact-details">
+                <strong>Navigation links</strong>
+                <span>{job.capture.navigationLinks.length}</span>
+              </div>
+            </li>
+            <li>
+              <div className="artifact-details">
+                <strong>Primary CTAs</strong>
+                <span>{job.capture.primaryCtas.length}</span>
+              </div>
+            </li>
+            <li>
+              <div className="artifact-details">
+                <strong>Image assets</strong>
+                <span>{job.capture.imageAssets.length}</span>
+              </div>
+            </li>
+            <li>
+              <div className="artifact-details">
+                <strong>Fonts</strong>
+                <span>{job.capture.styleTokens.fontFamilies.join(", ") || "None detected"}</span>
+              </div>
+            </li>
+            <li>
+              <div className="artifact-details">
+                <strong>Product handles</strong>
+                <span>{job.capture.routeHints.productHandles.join(", ") || "None detected"}</span>
+              </div>
+            </li>
+            <li>
+              <div className="artifact-details">
+                <strong>Collection handles</strong>
+                <span>{job.capture.routeHints.collectionHandles.join(", ") || "None detected"}</span>
+              </div>
+            </li>
+          </ul>
+        </div>
+      ) : null}
 
       <div className="stack">
         <h2>Generated artifacts</h2>
@@ -141,9 +215,10 @@ export function HandoffPage({ loadJob, loadRuntime }: HandoffPageProps) {
 
       {job.storeSetup ? (
         <div className="stack">
-          <h2>Store setup plan</h2>
+          <h2>Store setup bundle</h2>
           <p>{job.storeSetup.summary}</p>
           <p>Config path: {job.storeSetup.configPath}</p>
+          <p>Import bundle path: {job.storeSetup.importBundlePath}</p>
           <ul className="artifact-list">
             {job.storeSetup.products.map((product) => (
               <li key={product.handle}>
@@ -239,7 +314,7 @@ export function HandoffPage({ loadJob, loadRuntime }: HandoffPageProps) {
         <ul className="checklist">
           <li>Confirm the generated layout matches the reference intent closely enough for QA.</li>
           <li>Verify content blocks and calls to action are mapped to the right section structure.</li>
-          <li>Review the generated products, collections, menus, and structured content plan before store setup.</li>
+          <li>Review the generated products, collections, menus, and structured content bundle before store setup.</li>
           <li>Review the commerce wiring snippet, cart path, and checkout handoff before publish.</li>
           <li>Review the integration report and resolve any failed consistency checks before preview.</li>
           <li>Run the preview command and check cart to native Shopify checkout handoff.</li>

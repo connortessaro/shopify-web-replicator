@@ -1,8 +1,16 @@
 import type {
   AppRuntimeConfig,
+  DestinationStoreProfile,
+  PageType,
+  ReferenceCapture,
+  ReferenceAnalysis,
   ReferenceIntake,
   ReplicationJob,
-  ReplicationJobSummary
+  ReplicationJobSummary,
+  SourceQualification,
+  StoreSetupPlan,
+  ThemeCheckResult,
+  ThemeMapping
 } from "@shopify-web-replicator/shared";
 import { createReplicationJob } from "@shopify-web-replicator/shared";
 
@@ -12,20 +20,77 @@ import { getDefaultRuntimeConfig } from "./runtime.js";
 import { ShopifyCommerceWiringGenerator } from "./services/commerce-wiring-generator.js";
 import { ShopifyIntegrationReportGenerator } from "./services/integration-report-generator.js";
 import { DeterministicPageAnalyzer } from "./services/page-analyzer.js";
+import { HtmlReferenceCaptureService } from "./services/reference-capture.js";
 import { ReplicationPipeline } from "./services/replication-pipeline.js";
+import { StorefrontInspector } from "./services/storefront-inspector.js";
 import { ShopifyStoreSetupGenerator } from "./services/store-setup-generator.js";
+import { ShopifySourceQualificationService } from "./services/source-qualification.js";
 import { DeterministicThemeMapper } from "./services/theme-mapper.js";
 import { ShopifyThemeGenerator } from "./services/theme-generator.js";
 import { ShopifyThemeValidator } from "./services/theme-validator.js";
-import type {
-  Analyzer,
-  CommerceGenerator,
-  Generator,
-  IntegrationGenerator,
-  Mapper,
-  StoreSetupGenerator,
-  ThemeValidator
-} from "./services/types.js";
+
+type Analyzer = {
+  analyze(input: {
+    referenceUrl: string;
+    pageType?: PageType;
+    notes?: string;
+    capture?: ReferenceCapture;
+  }): Promise<ReferenceAnalysis>;
+};
+
+type Mapper = {
+  map(input: { analysis: ReferenceAnalysis; referenceUrl: string; notes?: string }): Promise<ThemeMapping>;
+};
+
+type Generator = {
+  generate(input: {
+    analysis: ReferenceAnalysis;
+    mapping: ThemeMapping;
+  }): Promise<{
+    artifacts: ReplicationJob["artifacts"];
+    generation: NonNullable<ReplicationJob["generation"]>;
+  }>;
+};
+
+type StoreSetupGenerator = {
+  generate(input: {
+    analysis: ReferenceAnalysis;
+    mapping: ThemeMapping;
+  }): Promise<{
+    artifact: ReplicationJob["artifacts"][number];
+    storeSetup: StoreSetupPlan;
+  }>;
+};
+
+type CommerceGenerator = {
+  generate(input: {
+    analysis: ReferenceAnalysis;
+    mapping: ThemeMapping;
+    storeSetup: StoreSetupPlan;
+  }): Promise<{
+    artifact: ReplicationJob["artifacts"][number];
+    commerce: NonNullable<ReplicationJob["commerce"]>;
+  }>;
+};
+
+type IntegrationGenerator = {
+  generate(input: {
+    analysis: ReferenceAnalysis;
+    mapping: ThemeMapping;
+    generation: NonNullable<ReplicationJob["generation"]>;
+    storeSetup: StoreSetupPlan;
+    commerce: NonNullable<ReplicationJob["commerce"]>;
+    artifacts: ReplicationJob["artifacts"];
+    validation: ThemeCheckResult;
+  }): Promise<{
+    artifact: ReplicationJob["artifacts"][number];
+    integration: NonNullable<ReplicationJob["integration"]>;
+  }>;
+};
+
+type ThemeValidator = {
+  validate(): Promise<ThemeCheckResult>;
+};
 
 export interface ReplicationHandoff {
   job: ReplicationJob;
@@ -36,6 +101,12 @@ export interface ReplicationHandoff {
 export type ReplicationOrchestratorOptions = {
   repository: JobRepository;
   runtime: AppRuntimeConfig;
+  qualificationService: {
+    qualify(input: { jobId: string; referenceUrl: string }): Promise<SourceQualification>;
+  };
+  captureService: {
+    capture(input: { jobId: string; referenceUrl: string }): Promise<ReferenceCapture>;
+  };
   analyzer: Analyzer;
   mapper: Mapper;
   generator: Generator;
@@ -50,6 +121,13 @@ export type DefaultReplicationOrchestratorOptions = {
   databasePath?: string;
   themeWorkspacePath?: string;
 };
+
+function resolveDestinationStore(
+  runtime: AppRuntimeConfig,
+  destinationStoreId: string
+): DestinationStoreProfile | undefined {
+  return runtime.destinationStores.find((store) => store.id === destinationStoreId);
+}
 
 function buildNextActions(job: ReplicationJob): string[] {
   if (job.status === "failed") {
@@ -77,6 +155,8 @@ export class ReplicationOrchestrator {
     this.#runtime = options.runtime;
     this.#pipeline = new ReplicationPipeline({
       repository: options.repository,
+      qualificationService: options.qualificationService,
+      captureService: options.captureService,
       analyzer: options.analyzer,
       mapper: options.mapper,
       generator: options.generator,
@@ -91,7 +171,15 @@ export class ReplicationOrchestrator {
     return this.#runtime;
   }
 
+  listDestinationStores(): DestinationStoreProfile[] {
+    return [...this.#runtime.destinationStores];
+  }
+
   async createJob(intake: ReferenceIntake): Promise<ReplicationJobSummary> {
+    if (!resolveDestinationStore(this.#runtime, intake.destinationStore)) {
+      throw new Error(`Unknown destination store ${intake.destinationStore}.`);
+    }
+
     const job = await this.repository.save(createReplicationJob(intake));
 
     return {
@@ -99,7 +187,8 @@ export class ReplicationOrchestrator {
       status: job.status,
       currentStage: job.currentStage,
       createdAt: job.createdAt,
-      pageType: job.intake.pageType
+      pageType: job.intake.pageType,
+      destinationStore: job.intake.destinationStore
     };
   }
 
@@ -133,41 +222,6 @@ export class ReplicationOrchestrator {
   async listRecentJobs(limit = 10): Promise<ReplicationJobSummary[]> {
     return this.repository.listRecent(limit);
   }
-
-  async retryJob(jobId: string): Promise<ReplicationHandoff> {
-    const job = await this.repository.getById(jobId);
-
-    if (!job) {
-      throw new Error(`Job ${jobId} not found.`);
-    }
-
-    if (job.status !== "failed") {
-      throw new Error(`Job ${jobId} is not in a failed state.`);
-    }
-
-    for (const stage of job.stages) {
-      if (stage.status === "failed") {
-        stage.status = "pending";
-        delete stage.startedAt;
-        delete stage.completedAt;
-        delete stage.summary;
-        delete stage.errorMessage;
-      }
-    }
-
-    job.status = "in_progress";
-    delete job.error;
-    job.updatedAt = new Date().toISOString();
-    await this.repository.save(job);
-
-    const result = await this.runJob(jobId);
-
-    return {
-      job: result,
-      runtime: this.#runtime,
-      nextActions: buildNextActions(result)
-    };
-  }
 }
 
 export function createReplicationOrchestrator(
@@ -187,10 +241,13 @@ export function createDefaultReplicationOrchestrator(
   const repository = new SqliteJobRepository(
     options.databasePath ?? process.env.REPLICATOR_DB_PATH ?? `${cwd}/.data/replicator.db`
   );
+  const inspector = new StorefrontInspector(runtime.captureRootPath);
 
   return createReplicationOrchestrator({
     repository,
     runtime,
+    qualificationService: new ShopifySourceQualificationService(inspector),
+    captureService: new HtmlReferenceCaptureService(inspector),
     analyzer: new DeterministicPageAnalyzer(),
     mapper: new DeterministicThemeMapper(),
     generator: new ShopifyThemeGenerator(runtime.themeWorkspacePath),

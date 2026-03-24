@@ -1,5 +1,6 @@
 import type {
   AppRuntimeConfig,
+  DestinationStoreProfile,
   ReferenceIntake,
   ReplicationJob,
   ReplicationJobSummary
@@ -43,4 +44,10 @@ export async function loadRuntime(): Promise<AppRuntimeConfig> {
   const response = await fetch(`${apiBaseUrl}/api/runtime`);
 
   return parseJsonResponse<AppRuntimeConfig>(response);
+}
+
+export async function loadDestinationStores(): Promise<DestinationStoreProfile[]> {
+  const response = await fetch(`${apiBaseUrl}/api/destination-stores`);
+
+  return parseJsonResponse<DestinationStoreProfile[]>(response);
 }

@@ -23,6 +23,7 @@ describe("SqliteJobRepository", () => {
     const databasePath = join(tempDirectory, "replicator.db");
     const job = createReplicationJob({
       referenceUrl: "https://example.com",
+      destinationStore: "local-dev-store",
       notes: "Preserve the hero hierarchy"
     });
 
@@ -41,7 +42,8 @@ describe("SqliteJobRepository", () => {
     const databasePath = join(tempDirectory, "replicator.db");
     const repository = new SqliteJobRepository(databasePath);
     const job = createReplicationJob({
-      referenceUrl: "https://example.com/offer"
+      referenceUrl: "https://example.com/offer",
+      destinationStore: "local-dev-store"
     });
 
     await repository.save(job);

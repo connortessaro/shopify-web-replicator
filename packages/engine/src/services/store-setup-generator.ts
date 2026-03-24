@@ -10,11 +10,13 @@ import {
   type StoreSetupContentModelPlan,
   type StoreSetupMenuPlan,
   type StoreSetupPlan,
-  type StoreSetupProductPlan
+  type StoreSetupProductPlan,
+  type ThemeMapping
 } from "@shopify-web-replicator/shared";
 
 type GenerateInput = {
   analysis: ReferenceAnalysis;
+  mapping: ThemeMapping;
 };
 
 type StoreSetupGenerationResult = {
@@ -22,13 +24,12 @@ type StoreSetupGenerationResult = {
   storeSetup: StoreSetupPlan;
 };
 
-function toHandle(value: string): string | undefined {
-  const handle = value
+function toHandle(value: string): string {
+  return value
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .replace(/-{2,}/g, "-");
-  return handle || undefined;
 }
 
 function buildProducts(analysis: ReferenceAnalysis): StoreSetupProductPlan[] {
@@ -108,7 +109,7 @@ function buildMenus(
 ): StoreSetupMenuPlan[] {
   const featuredCollection = collections[0];
   const primaryProduct = products[0];
-  const homeTarget = "/";
+  const homeTarget = analysis.pageType === "homepage" ? "/" : "/";
 
   return [
     {
@@ -200,7 +201,8 @@ function createStoreSetupPlan(analysis: ReferenceAnalysis): StoreSetupPlan {
   return {
     plannedAt: new Date().toISOString(),
     configPath: stableStoreSetupArtifact.path,
-    summary: `Prepared deterministic store setup plan for ${analysis.title} covering products, collections, menus, and structured content for the ${pageTypeLabels[analysis.pageType]}.`,
+    importBundlePath: stableStoreSetupArtifact.path,
+    summary: `Prepared import-ready store setup bundle for ${analysis.title} covering products, collections, menus, and structured content for the ${pageTypeLabels[analysis.pageType]}.`,
     products,
     collections,
     menus,
@@ -215,7 +217,7 @@ export class ShopifyStoreSetupGenerator {
     this.#themeWorkspacePath = themeWorkspacePath;
   }
 
-  async generate({ analysis }: GenerateInput): Promise<StoreSetupGenerationResult> {
+  async generate({ analysis, mapping }: GenerateInput): Promise<StoreSetupGenerationResult> {
     const storeSetup = createStoreSetupPlan(analysis);
     const outputPath = join(this.#themeWorkspacePath, stableStoreSetupArtifact.path);
 
@@ -228,7 +230,15 @@ export class ShopifyStoreSetupGenerator {
           sourceUrl: analysis.sourceUrl,
           pageType: analysis.pageType,
           title: analysis.title,
-          storeSetup
+          mappingSummary: mapping.summary,
+          storeSetup,
+          importBundle: {
+            generatedAt: storeSetup.plannedAt,
+            products: storeSetup.products,
+            collections: storeSetup.collections,
+            menus: storeSetup.menus,
+            contentModels: storeSetup.contentModels
+          }
         },
         null,
         2

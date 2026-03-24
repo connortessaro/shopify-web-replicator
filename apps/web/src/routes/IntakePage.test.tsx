@@ -10,17 +10,28 @@ describe("IntakePage", () => {
     const user = userEvent.setup();
     const submitReference = vi.fn().mockResolvedValue({
       jobId: "job_123",
-      currentStage: "intake",
+      currentStage: "source_qualification",
       status: "in_progress"
     });
 
     render(
       <MemoryRouter>
-        <IntakePage submitReference={submitReference} loadRecentJobs={vi.fn().mockResolvedValue([])} />
+        <IntakePage
+          submitReference={submitReference}
+          loadRecentJobs={vi.fn().mockResolvedValue([])}
+          loadDestinationStores={vi.fn().mockResolvedValue([
+            {
+              id: "local-dev-store",
+              label: "Local Dev Store",
+              shopDomain: "local-dev-store.myshopify.com"
+            }
+          ])}
+        />
       </MemoryRouter>
     );
 
     await user.type(screen.getByLabelText(/reference url/i), "https://example.com");
+    await user.selectOptions(screen.getByLabelText(/destination store/i), "local-dev-store");
     await user.selectOptions(screen.getByLabelText(/page type/i), "product_page");
     await user.type(screen.getByLabelText(/notes/i), "Match the homepage hero");
     await user.click(screen.getByRole("button", { name: /start replication/i }));
@@ -28,6 +39,7 @@ describe("IntakePage", () => {
     await waitFor(() => {
       expect(submitReference).toHaveBeenCalledWith({
         referenceUrl: "https://example.com",
+        destinationStore: "local-dev-store",
         notes: "Match the homepage hero",
         pageType: "product_page"
       });
@@ -46,18 +58,30 @@ describe("IntakePage", () => {
         currentStage: "review",
         status: "needs_review",
         createdAt: "2026-03-20T12:00:00.000Z",
-        pageType: "collection_page"
+        pageType: "collection_page",
+        destinationStore: "local-dev-store"
       }
     ]);
 
     render(
       <MemoryRouter>
-        <IntakePage submitReference={submitReference} loadRecentJobs={loadRecentJobs} />
+        <IntakePage
+          submitReference={submitReference}
+          loadRecentJobs={loadRecentJobs}
+          loadDestinationStores={vi.fn().mockResolvedValue([
+            {
+              id: "local-dev-store",
+              label: "Local Dev Store",
+              shopDomain: "local-dev-store.myshopify.com"
+            }
+          ])}
+        />
       </MemoryRouter>
     );
 
     expect(await screen.findByText(/recent jobs/i)).toBeInTheDocument();
     expect(screen.getByText(/page type: collection page/i)).toBeInTheDocument();
+    expect(screen.getByText(/destination: local-dev-store/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /view job job_latest/i })).toHaveAttribute(
       "href",
       "/jobs/job_latest"

@@ -16,7 +16,7 @@ describe("ShopifyStoreSetupGenerator", () => {
     tempDirectories.length = 0;
   });
 
-  it("writes a deterministic store setup plan into the stable config path", async () => {
+  it("writes an import-ready store setup bundle into the stable config path", async () => {
     const themeRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-theme-"));
     tempDirectories.push(themeRoot);
 
@@ -76,6 +76,12 @@ describe("ShopifyStoreSetupGenerator", () => {
     );
     await expect(readFile(join(themeRoot, "config/generated-store-setup.json"), "utf8")).resolves.toContain(
       "\"main-menu\""
+    );
+    await expect(readFile(join(themeRoot, "config/generated-store-setup.json"), "utf8")).resolves.toContain(
+      "\"importBundle\""
+    );
+    expect((result.storeSetup as { importBundlePath?: string }).importBundlePath).toBe(
+      "config/generated-store-setup.json"
     );
   });
 });

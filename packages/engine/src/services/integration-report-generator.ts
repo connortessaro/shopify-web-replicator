@@ -73,7 +73,7 @@ function buildEntrypointCheck(storeSetup: StoreSetupPlan, commerce: CommerceWiri
     return {
       id: "commerce_entrypoints",
       status: "failed",
-      details: `Commerce entrypoints do not resolve against the deterministic store setup plan: ${invalidTargets.join(", ")}.`
+      details: `Commerce entrypoints do not resolve against the import-ready store setup bundle: ${invalidTargets.join(", ")}.`
     };
   }
 

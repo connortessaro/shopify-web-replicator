@@ -6,7 +6,9 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   createReplicationJob,
+  type ReferenceCapture,
   type ReferenceAnalysis,
+  type SourceQualification,
   type ThemeMapping,
   type ThemeCheckResult
 } from "@shopify-web-replicator/shared";
@@ -18,6 +20,53 @@ import { ShopifyCommerceWiringGenerator } from "./commerce-wiring-generator";
 import { ShopifyIntegrationReportGenerator } from "./integration-report-generator";
 import { ShopifyStoreSetupGenerator } from "./store-setup-generator";
 import { ShopifyThemeGenerator } from "./theme-generator";
+
+function createCapture(referenceUrl: string, title: string): ReferenceCapture {
+  return {
+    sourceUrl: referenceUrl,
+    resolvedUrl: referenceUrl,
+    referenceHost: new URL(referenceUrl).hostname.replace(/^www\./, ""),
+    title,
+    capturedAt: "2026-03-20T12:00:30.000Z",
+    captureBundlePath: `/tmp/${title.replace(/\s+/g, "-").toLowerCase()}/capture-bundle.json`,
+    desktopScreenshotPath: `/tmp/${title.replace(/\s+/g, "-").toLowerCase()}/desktop.jpg`,
+    mobileScreenshotPath: `/tmp/${title.replace(/\s+/g, "-").toLowerCase()}/mobile.jpg`,
+    textContent: `${title} captured storefront text`,
+    headingOutline: [title],
+    navigationLinks: [{ label: "Shop", href: "https://example.com/collections/featured" }],
+    primaryCtas: [{ label: "Buy now", href: "https://example.com/products/example-storefront" }],
+    imageAssets: [{ src: "https://example.com/hero.jpg", alt: `${title} hero` }],
+    styleTokens: {
+      dominantColors: ["rgb(255, 255, 255)", "rgb(17, 24, 39)"],
+      fontFamilies: ["Inter", "Georgia"],
+      bodyTextColor: "rgb(17, 24, 39)",
+      pageBackgroundColor: "rgb(255, 255, 255)",
+      primaryButtonBackgroundColor: "rgb(17, 24, 39)",
+      primaryButtonTextColor: "rgb(255, 255, 255)",
+      linkColor: "rgb(37, 99, 235)"
+    },
+    routeHints: {
+      productHandles: ["example-storefront"],
+      collectionHandles: ["featured"],
+      cartPath: "/cart",
+      checkoutPath: "/checkout"
+    }
+  };
+}
+
+function createQualification(referenceUrl: string): SourceQualification {
+  return {
+    status: "supported",
+    platform: "shopify",
+    referenceHost: new URL(referenceUrl).hostname.replace(/^www\./, ""),
+    resolvedUrl: referenceUrl,
+    qualifiedAt: "2026-03-20T12:00:15.000Z",
+    summary: "Verified a supported public Shopify storefront source.",
+    evidence: ["window.Shopify"],
+    httpStatus: 200,
+    isPasswordProtected: false
+  };
+}
 
 describe("ReplicationPipeline", () => {
   const tempDirectories: string[] = [];
@@ -35,7 +84,7 @@ describe("ReplicationPipeline", () => {
     const repository = new SqliteJobRepository(join(dataRoot, "replicator.db"));
     const job = createReplicationJob({
       referenceUrl: "https://example.com",
-      pageType: "landing_page",
+      destinationStore: "local-dev-store",
       notes: "Landing page MVP"
     });
 
@@ -43,6 +92,16 @@ describe("ReplicationPipeline", () => {
 
     const pipeline = new ReplicationPipeline({
       repository,
+      qualificationService: {
+        async qualify({ referenceUrl }) {
+          return createQualification(referenceUrl);
+        }
+      },
+      captureService: {
+        async capture({ referenceUrl }) {
+          return createCapture(referenceUrl, "Example Storefront");
+        }
+      },
       analyzer: {
         async analyze({ referenceUrl, notes }) {
           return {
@@ -104,6 +163,12 @@ describe("ReplicationPipeline", () => {
       id: job.id,
       status: "needs_review",
       currentStage: "review",
+      sourceQualification: {
+        status: "supported"
+      },
+      capture: {
+        title: "Example Storefront"
+      },
       analysis: {
         title: "Example Storefront"
       },
@@ -112,7 +177,7 @@ describe("ReplicationPipeline", () => {
       },
       storeSetup: {
         summary:
-          "Prepared deterministic store setup plan for Example Storefront covering products, collections, menus, and structured content for the landing page."
+          "Prepared import-ready store setup bundle for Example Storefront covering products, collections, menus, and structured content for the landing page."
       },
       commerce: {
         summary: "Prepared deterministic commerce wiring plan for Example Storefront with native Shopify cart and checkout handoff."
@@ -177,13 +242,24 @@ describe("ReplicationPipeline", () => {
 
     const repository = new SqliteJobRepository(join(dataRoot, "replicator.db"));
     const job = createReplicationJob({
-      referenceUrl: "https://example.com"
+      referenceUrl: "https://example.com",
+      destinationStore: "local-dev-store"
     });
 
     await repository.save(job);
 
     const pipeline = new ReplicationPipeline({
       repository,
+      qualificationService: {
+        async qualify({ referenceUrl }) {
+          return createQualification(referenceUrl);
+        }
+      },
+      captureService: {
+        async capture({ referenceUrl }) {
+          return createCapture(referenceUrl, "Example Storefront");
+        }
+      },
       analyzer: {
         async analyze() {
           return {
@@ -251,6 +327,7 @@ describe("ReplicationPipeline", () => {
     const repository = new SqliteJobRepository(join(dataRoot, "replicator.db"));
     const job = createReplicationJob({
       referenceUrl: "https://example.com/products/trail-pack",
+      destinationStore: "local-dev-store",
       pageType: "product_page"
     });
 
@@ -258,6 +335,16 @@ describe("ReplicationPipeline", () => {
 
     const pipeline = new ReplicationPipeline({
       repository,
+      qualificationService: {
+        async qualify({ referenceUrl }) {
+          return createQualification(referenceUrl);
+        }
+      },
+      captureService: {
+        async capture({ referenceUrl }) {
+          return createCapture(referenceUrl, "Trail Pack");
+        }
+      },
       analyzer: {
         async analyze() {
           return {
@@ -353,6 +440,7 @@ describe("ReplicationPipeline", () => {
     const repository = new SqliteJobRepository(join(dataRoot, "replicator.db"));
     const job = createReplicationJob({
       referenceUrl: "https://example.com",
+      destinationStore: "local-dev-store",
       pageType: "homepage"
     });
 
@@ -360,6 +448,16 @@ describe("ReplicationPipeline", () => {
 
     const pipeline = new ReplicationPipeline({
       repository,
+      qualificationService: {
+        async qualify({ referenceUrl }) {
+          return createQualification(referenceUrl);
+        }
+      },
+      captureService: {
+        async capture({ referenceUrl }) {
+          return createCapture(referenceUrl, "Example Storefront");
+        }
+      },
       analyzer: {
         async analyze() {
           return {
@@ -455,6 +553,7 @@ describe("ReplicationPipeline", () => {
     const repository = new SqliteJobRepository(join(dataRoot, "replicator.db"));
     const job = createReplicationJob({
       referenceUrl: "https://example.com",
+      destinationStore: "local-dev-store",
       pageType: "landing_page"
     });
 
@@ -462,6 +561,16 @@ describe("ReplicationPipeline", () => {
 
     const pipeline = new ReplicationPipeline({
       repository,
+      qualificationService: {
+        async qualify({ referenceUrl }) {
+          return createQualification(referenceUrl);
+        }
+      },
+      captureService: {
+        async capture({ referenceUrl }) {
+          return createCapture(referenceUrl, "Example Storefront");
+        }
+      },
       analyzer: {
         async analyze() {
           return {
