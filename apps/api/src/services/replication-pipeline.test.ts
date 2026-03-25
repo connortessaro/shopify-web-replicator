@@ -34,7 +34,7 @@ describe("ReplicationPipeline", () => {
 
     const repository = new SqliteJobRepository(join(dataRoot, "replicator.db"));
     const job = createReplicationJob({
-      referenceUrl: "https://example.com",
+      referenceUrl: "https://example.com/offer",
       notes: "Landing page MVP"
     });
 
@@ -159,7 +159,7 @@ describe("ReplicationPipeline", () => {
       readFile(join(themeRoot, "templates/page.generated-reference.json"), "utf8")
     ).resolves.toContain('"type": "generated-reference"');
     await expect(readFile(join(themeRoot, "config/generated-store-setup.json"), "utf8")).resolves.toContain(
-      "\"example-storefront\""
+      "\"example-heading\""
     );
     await expect(readFile(join(themeRoot, "snippets/generated-commerce-wiring.liquid"), "utf8")).resolves.toContain(
       "/checkout"
