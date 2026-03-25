@@ -507,11 +507,23 @@ function derivePageTypeFromUrl(referenceUrl: string): PageType | undefined {
   return undefined;
 }
 
+function inferPageTypeFromUrl(referenceUrl: string): PageType {
+  const { pathname } = new URL(referenceUrl);
+  if (pathname === "/" || pathname === "") return "homepage";
+  if (pathname.startsWith("/products/")) return "product_page";
+  if (pathname.startsWith("/collections/")) return "collection_page";
+  return "landing_page";
+}
+
 function normalizeReferenceIntake(intake: ReferenceIntake): NormalizedReferenceIntake {
   return {
     referenceUrl: intake.referenceUrl,
+<<<<<<< HEAD
     destinationStore: intake.destinationStore,
     pageType: intake.pageType ?? derivePageTypeFromUrl(intake.referenceUrl) ?? "landing_page",
+=======
+    pageType: intake.pageType ?? inferPageTypeFromUrl(intake.referenceUrl),
+>>>>>>> 0ff837ae2df3782ab4b72a9b6d93d92b7f7d8110
     ...(intake.notes ? { notes: intake.notes } : {})
   };
 }

@@ -190,12 +190,44 @@ ${JSON.stringify(
   {
     name: schemaNameForPageType(analysis.pageType),
     settings: [
+<<<<<<< HEAD
       { type: "text", id: "eyebrow", label: "Eyebrow", default: analysis.referenceHost },
       { type: "text", id: "heading", label: "Heading", default: heading },
       { type: "textarea", id: "body", label: "Body", default: primarySection?.body ?? analysis.summary },
       { type: "text", id: "cta_label", label: "CTA label", default: ctaLabel },
       { type: "url", id: "cta_link", label: "CTA link" },
       ...heroImageSettings(capture)
+=======
+      {
+        type: "text",
+        id: "eyebrow",
+        label: "Eyebrow",
+        default: analysis.referenceHost
+      },
+      {
+        type: "text",
+        id: "heading",
+        label: "Heading",
+        default: primarySection?.heading ?? analysis.title
+      },
+      {
+        type: "textarea",
+        id: "body",
+        label: "Body",
+        default: primarySection?.body ?? analysis.summary
+      },
+      {
+        type: "text",
+        id: "cta_label",
+        label: "CTA label",
+        default: primarySection?.ctaLabel ?? "Review generated output"
+      },
+      {
+        type: "url",
+        id: "cta_link",
+        label: "CTA link"
+      }
+>>>>>>> 0ff837ae2df3782ab4b72a9b6d93d92b7f7d8110
     ],
     presets: [{ name: schemaNameForPageType(analysis.pageType) }]
   },
@@ -234,11 +266,17 @@ function renderProductSection(
     {% if section.settings.eyebrow != blank %}
       <p class="${sectionType}__eyebrow">{{ section.settings.eyebrow }}</p>
     {% endif %}
+<<<<<<< HEAD
 
     {% if product.featured_image %}
       {{ product.featured_image | image_url: width: 600 | image_tag: class: "${sectionType}__image" }}
     {% endif %}
 
+=======
+    {% if product.featured_image %}
+      {{ product.featured_image | image_url: width: 600 | image_tag: class: "${sectionType}__image", loading: 'lazy' }}
+    {% endif %}
+>>>>>>> 0ff837ae2df3782ab4b72a9b6d93d92b7f7d8110
     <h1>{{ product.title | default: section.settings.heading }}</h1>
     <p class="${sectionType}__body">{{ section.settings.body }}</p>
 
@@ -271,6 +309,13 @@ ${renderCommerceWiringSnippet(analysis.pageType)}
     grid-column: 2;
     padding: 0 24px;
     max-width: 760px;
+  }
+
+  .${sectionType}__image {
+    width: 100%;
+    max-width: 480px;
+    border-radius: 0.5rem;
+    margin-bottom: 1.5rem;
   }
 
   .${sectionType}__eyebrow,
@@ -323,10 +368,37 @@ ${JSON.stringify(
   {
     name: schemaNameForPageType(analysis.pageType),
     settings: [
+<<<<<<< HEAD
       { type: "text", id: "eyebrow", label: "Eyebrow", default: analysis.referenceHost },
       { type: "text", id: "heading", label: "Heading fallback", default: heading },
       { type: "textarea", id: "body", label: "Body", default: primarySection?.body ?? analysis.summary },
       { type: "text", id: "cta_label", label: "CTA label", default: ctaLabel }
+=======
+      {
+        type: "text",
+        id: "eyebrow",
+        label: "Eyebrow",
+        default: analysis.referenceHost
+      },
+      {
+        type: "text",
+        id: "heading",
+        label: "Heading fallback",
+        default: primarySection?.heading ?? analysis.title
+      },
+      {
+        type: "textarea",
+        id: "body",
+        label: "Body",
+        default: primarySection?.body ?? analysis.summary
+      },
+      {
+        type: "text",
+        id: "cta_label",
+        label: "CTA label",
+        default: primarySection?.ctaLabel ?? "Add to cart"
+      }
+>>>>>>> 0ff837ae2df3782ab4b72a9b6d93d92b7f7d8110
     ]
   },
   null,
@@ -368,6 +440,7 @@ function renderCollectionSection(
 
     <div class="${sectionType}__grid">
       {% for product in collection.products limit: 8 %}
+<<<<<<< HEAD
         <a href="{{ product.url }}" class="${sectionType}__card-link">
           <article class="${sectionType}__card">
             {% if product.featured_image %}
@@ -376,6 +449,11 @@ function renderCollectionSection(
             <h2>{{ product.title }}</h2>
             <p>{{ product.price | money }}</p>
           </article>
+=======
+        <a class="${sectionType}__card" href="{{ product.url }}">
+          <h2>{{ product.title }}</h2>
+          <p>{{ product.price | money }}</p>
+>>>>>>> 0ff837ae2df3782ab4b72a9b6d93d92b7f7d8110
         </a>
       {% else %}
         <p class="${sectionType}__empty">Connect this template to a collection to validate the generated browsing flow.</p>
@@ -419,6 +497,9 @@ ${renderCommerceWiringSnippet(analysis.pageType)}
   }
 
   .${sectionType}__card {
+    display: block;
+    text-decoration: none;
+    color: inherit;
     padding: 1rem;
     border-radius: 1rem;
     background: ${cardBg}15;
@@ -441,9 +522,30 @@ ${JSON.stringify(
   {
     name: schemaNameForPageType(analysis.pageType),
     settings: [
+<<<<<<< HEAD
       { type: "text", id: "eyebrow", label: "Eyebrow", default: analysis.referenceHost },
       { type: "text", id: "heading", label: "Heading fallback", default: heading },
       { type: "textarea", id: "body", label: "Body", default: primarySection?.body ?? analysis.summary }
+=======
+      {
+        type: "text",
+        id: "eyebrow",
+        label: "Eyebrow",
+        default: analysis.referenceHost
+      },
+      {
+        type: "text",
+        id: "heading",
+        label: "Heading fallback",
+        default: primarySection?.heading ?? analysis.title
+      },
+      {
+        type: "textarea",
+        id: "body",
+        label: "Body",
+        default: primarySection?.body ?? analysis.summary
+      }
+>>>>>>> 0ff837ae2df3782ab4b72a9b6d93d92b7f7d8110
     ]
   },
   null,
@@ -481,10 +583,16 @@ function renderTemplate(analysis: ReferenceAnalysis, mapping: ThemeMapping, capt
             eyebrow: mapping.title,
             heading,
             body: mapping.sections[0]?.body ?? mapping.summary,
+<<<<<<< HEAD
             mapping_summary: mapping.summary,
             ...(analysis.pageType !== "collection_page" ? { cta_label: ctaLabel } : {}),
             ...(capture?.imageAssets[0] ? { hero_image: capture.imageAssets[0].src } : {}),
             ...(capture?.imageAssets[0]?.alt ? { hero_image_alt: capture.imageAssets[0].alt } : {})
+=======
+            ...(analysis.pageType !== "collection_page"
+              ? { cta_label: mapping.sections[0]?.ctaLabel ?? "Review generated output" }
+              : {})
+>>>>>>> 0ff837ae2df3782ab4b72a9b6d93d92b7f7d8110
           }
         }
       },

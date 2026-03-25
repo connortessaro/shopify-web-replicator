@@ -25,26 +25,41 @@ type StoreSetupGenerationResult = {
 };
 
 function toHandle(value: string): string {
-  return value
+  const handle = value
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .replace(/-{2,}/g, "-");
+
+  if (!handle) {
+    throw new Error(`Could not derive a valid handle from: "${value}"`);
+  }
+
+  return handle;
 }
 
-function buildProducts(analysis: ReferenceAnalysis): StoreSetupProductPlan[] {
-  const primaryHandle = toHandle(analysis.title) || toHandle(analysis.referenceHost) || "generated-reference";
+function safeHandle(value: string, fallback: string): string {
+  try {
+    return toHandle(value);
+  } catch {
+    return fallback;
+  }
+}
+
+function buildProducts(analysis: ReferenceAnalysis, mapping: ThemeMapping): StoreSetupProductPlan[] {
+  const preferredTitle = mapping.sections[0]?.heading || analysis.title;
+  const primaryHandle = safeHandle(preferredTitle, safeHandle(analysis.referenceHost, "generated-reference"));
 
   if (analysis.pageType === "homepage") {
     return [
       {
         handle: `${primaryHandle}-feature-1`,
-        title: `${analysis.title} Feature One`,
+        title: `${preferredTitle} Feature One`,
         merchandisingRole: "Featured product for the generated homepage hero and CTA flow."
       },
       {
         handle: `${primaryHandle}-feature-2`,
-        title: `${analysis.title} Feature Two`,
+        title: `${preferredTitle} Feature Two`,
         merchandisingRole: "Secondary merchandising slot for homepage browsing and collection previews."
       }
     ];
@@ -54,17 +69,17 @@ function buildProducts(analysis: ReferenceAnalysis): StoreSetupProductPlan[] {
     return [
       {
         handle: `${primaryHandle}-item-1`,
-        title: `${analysis.title} Item One`,
+        title: `${preferredTitle} Item One`,
         merchandisingRole: "Primary collection card for validating generated collection merchandising."
       },
       {
         handle: `${primaryHandle}-item-2`,
-        title: `${analysis.title} Item Two`,
+        title: `${preferredTitle} Item Two`,
         merchandisingRole: "Supporting collection card for validating product density and browsing flow."
       },
       {
         handle: `${primaryHandle}-item-3`,
-        title: `${analysis.title} Item Three`,
+        title: `${preferredTitle} Item Three`,
         merchandisingRole: "Additional collection card for deterministic merchandising coverage."
       }
     ];
@@ -73,7 +88,7 @@ function buildProducts(analysis: ReferenceAnalysis): StoreSetupProductPlan[] {
   return [
     {
       handle: primaryHandle,
-      title: analysis.title,
+      title: preferredTitle,
       merchandisingRole:
         analysis.pageType === "product_page"
           ? "Primary offer for the generated product detail and add-to-cart flow."
@@ -86,7 +101,7 @@ function buildCollections(
   analysis: ReferenceAnalysis,
   products: StoreSetupProductPlan[]
 ): StoreSetupCollectionPlan[] {
-  const baseHandle = toHandle(analysis.title) || toHandle(analysis.referenceHost) || "generated-reference";
+  const baseHandle = safeHandle(analysis.title, safeHandle(analysis.referenceHost, "generated-reference"));
   const featuredProductHandles = products.map((product) => product.handle);
 
   return [
@@ -109,7 +124,7 @@ function buildMenus(
 ): StoreSetupMenuPlan[] {
   const featuredCollection = collections[0];
   const primaryProduct = products[0];
-  const homeTarget = analysis.pageType === "homepage" ? "/" : "/";
+  const homeTarget = "/";
 
   return [
     {
@@ -192,8 +207,8 @@ function buildContentModels(analysis: ReferenceAnalysis): StoreSetupContentModel
   ];
 }
 
-function createStoreSetupPlan(analysis: ReferenceAnalysis): StoreSetupPlan {
-  const products = buildProducts(analysis);
+function createStoreSetupPlan(analysis: ReferenceAnalysis, mapping: ThemeMapping): StoreSetupPlan {
+  const products = buildProducts(analysis, mapping);
   const collections = buildCollections(analysis, products);
   const menus = buildMenus(analysis, collections, products);
   const contentModels = buildContentModels(analysis);
@@ -218,7 +233,7 @@ export class ShopifyStoreSetupGenerator {
   }
 
   async generate({ analysis, mapping }: GenerateInput): Promise<StoreSetupGenerationResult> {
-    const storeSetup = createStoreSetupPlan(analysis);
+    const storeSetup = createStoreSetupPlan(analysis, mapping);
     const outputPath = join(this.#themeWorkspacePath, stableStoreSetupArtifact.path);
 
     await mkdir(dirname(outputPath), { recursive: true });

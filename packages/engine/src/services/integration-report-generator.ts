@@ -226,7 +226,11 @@ export class ShopifyIntegrationReportGenerator {
       `${JSON.stringify(
         {
           generatedBy: "Shopify Web Replicator",
+<<<<<<< HEAD
           checkedAt,
+=======
+          checkedAt: checkedAt,
+>>>>>>> 0ff837ae2df3782ab4b72a9b6d93d92b7f7d8110
           sourceUrl: analysis.sourceUrl,
           pageType: analysis.pageType,
           title: analysis.title,

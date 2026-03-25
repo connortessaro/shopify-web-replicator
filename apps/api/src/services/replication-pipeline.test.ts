@@ -83,8 +83,12 @@ describe("ReplicationPipeline", () => {
 
     const repository = new SqliteJobRepository(join(dataRoot, "replicator.db"));
     const job = createReplicationJob({
+<<<<<<< HEAD
       referenceUrl: "https://example.com",
       destinationStore: "local-dev-store",
+=======
+      referenceUrl: "https://example.com/offer",
+>>>>>>> 0ff837ae2df3782ab4b72a9b6d93d92b7f7d8110
       notes: "Landing page MVP"
     });
 
@@ -246,7 +250,7 @@ describe("ReplicationPipeline", () => {
       readFile(join(themeRoot, "templates/page.generated-reference.json"), "utf8")
     ).resolves.toContain('"type": "generated-reference"');
     await expect(readFile(join(themeRoot, "config/generated-store-setup.json"), "utf8")).resolves.toContain(
-      "\"example-storefront\""
+      "\"example-heading\""
     );
     await expect(readFile(join(themeRoot, "snippets/generated-commerce-wiring.liquid"), "utf8")).resolves.toContain(
       "/checkout"
@@ -749,5 +753,85 @@ describe("ReplicationPipeline", () => {
         })
       ])
     });
+  });
+
+  it("still writes the integration report when validation fails (Bug 3)", async () => {
+    const dataRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-jobs-"));
+    const themeRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-theme-"));
+    tempDirectories.push(dataRoot, themeRoot);
+
+    const repository = new SqliteJobRepository(join(dataRoot, "replicator.db"));
+    const job = createReplicationJob({
+      referenceUrl: "https://example.com",
+      notes: "Landing page MVP"
+    });
+
+    await repository.save(job);
+
+    const pipeline = new ReplicationPipeline({
+      repository,
+      analyzer: {
+        async analyze({ referenceUrl, notes }) {
+          return {
+            sourceUrl: referenceUrl,
+            pageType: "landing_page",
+            title: "Example Storefront",
+            summary: notes
+              ? `Prepared deterministic analysis for Example Storefront. Operator notes: ${notes}`
+              : "Prepared deterministic analysis for Example Storefront.",
+            analyzedAt: "2026-03-20T12:01:00.000Z",
+            recommendedSections: ["hero", "cta"]
+          } satisfies ReferenceAnalysis;
+        }
+      },
+      mapper: {
+        async map({ analysis, referenceUrl, notes }) {
+          return {
+            sourceUrl: referenceUrl,
+            title: analysis.title,
+            summary: notes
+              ? `Mapped ${analysis.title} into the stable generated reference section. Operator notes: ${notes}`
+              : `Mapped ${analysis.title} into the stable generated reference section.`,
+            mappedAt: "2026-03-20T12:02:00.000Z",
+            templatePath: "templates/page.generated-reference.json",
+            sectionPath: "sections/generated-reference.liquid",
+            sections: [
+              {
+                id: "hero-1",
+                type: "hero",
+                heading: "Example heading",
+                body: "Example body copy",
+                ctaLabel: "Review generated output",
+                ctaHref: "/pages/generated-reference"
+              }
+            ]
+          } satisfies ThemeMapping;
+        }
+      },
+      generator: new ShopifyThemeGenerator(themeRoot),
+      storeSetupGenerator: new ShopifyStoreSetupGenerator(themeRoot),
+      commerceGenerator: new ShopifyCommerceWiringGenerator(themeRoot),
+      integrationGenerator: new ShopifyIntegrationReportGenerator(themeRoot),
+      themeValidator: {
+        async validate() {
+          return {
+            status: "failed",
+            summary: "Theme check failed: missing required liquid tag.",
+            checkedAt: "2026-03-20T12:03:00.000Z"
+          } satisfies ThemeCheckResult;
+        }
+      }
+    });
+
+    await pipeline.process(job.id);
+
+    const savedJob = await repository.getById(job.id);
+
+    expect(savedJob?.status).toBe("failed");
+    expect(savedJob?.integration).toBeDefined();
+
+    await expect(
+      readFile(join(themeRoot, "config/generated-integration-report.json"), "utf8")
+    ).resolves.toContain("\"commerce_snippet_reference\"");
   });
 });
