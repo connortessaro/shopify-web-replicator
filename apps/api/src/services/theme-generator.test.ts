@@ -84,6 +84,9 @@ describe("ShopifyThemeGenerator", () => {
     await expect(readFile(join(themeRoot, "templates/page.generated-reference.json"), "utf8")).resolves.toContain(
       '"type": "generated-reference"'
     );
+    await expect(readFile(join(themeRoot, "templates/page.generated-reference.json"), "utf8")).resolves.not.toContain(
+      '"mapping_summary"'
+    );
   });
 
   it("writes product-page outputs with a product form into product-specific stable files", async () => {
@@ -241,5 +244,103 @@ describe("ShopifyThemeGenerator", () => {
     await expect(readFile(join(themeRoot, "templates/page.generated-reference.json"), "utf8")).resolves.toContain(
       '"type": "generated-reference"'
     );
+  });
+
+  it("guards the product-page eyebrow with a blank check, includes a product image, and omits mapping_summary", async () => {
+    const themeRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-theme-"));
+    tempDirectories.push(themeRoot);
+
+    const generator = new ShopifyThemeGenerator(themeRoot);
+    const analysis: ReferenceAnalysis = {
+      sourceUrl: "https://example.com/products/trail-pack",
+      referenceHost: "example.com",
+      pageType: "product_page",
+      title: "Trail Pack",
+      summary: "Product page summary.",
+      analyzedAt: "2026-03-20T12:00:00.000Z",
+      recommendedSections: ["product_detail"]
+    };
+    const mapping: ThemeMapping = {
+      sourceUrl: "https://example.com/products/trail-pack",
+      title: "Trail Pack",
+      summary: "Product mapping summary.",
+      mappedAt: "2026-03-20T12:01:00.000Z",
+      templatePath: "templates/product.generated-reference.json",
+      sectionPath: "sections/generated-product-reference.liquid",
+      sections: [
+        {
+          id: "product-hero-1",
+          type: "product_detail",
+          heading: "Trail Pack",
+          body: "Durable pack copy",
+          ctaLabel: "Add to cart",
+          ctaHref: "/cart"
+        }
+      ]
+    };
+
+    await generator.generate({ analysis, mapping });
+
+    const sectionContent = await readFile(join(themeRoot, "sections/generated-product-reference.liquid"), "utf8");
+    const templateContent = await readFile(join(themeRoot, "templates/product.generated-reference.json"), "utf8");
+
+    // Bug 4 fix: eyebrow is wrapped in a blank check
+    expect(sectionContent).toContain("{% if section.settings.eyebrow != blank %}");
+
+    // Feature 2 fix: product image is rendered
+    expect(sectionContent).toContain("product.featured_image");
+
+    // Feature 1 fix: mapping_summary is absent from section HTML and schema settings
+    expect(sectionContent).not.toContain("section.settings.mapping_summary");
+    expect(sectionContent).not.toContain('"mapping_summary"');
+
+    // Feature 1 fix: mapping_summary is absent from the template JSON
+    expect(templateContent).not.toContain('"mapping_summary"');
+  });
+
+  it("renders collection-page product cards as linked <a> elements and omits mapping_summary", async () => {
+    const themeRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-theme-"));
+    tempDirectories.push(themeRoot);
+
+    const generator = new ShopifyThemeGenerator(themeRoot);
+    const analysis: ReferenceAnalysis = {
+      sourceUrl: "https://example.com/collections/summer-gear",
+      referenceHost: "example.com",
+      pageType: "collection_page",
+      title: "Summer Gear",
+      summary: "Collection page summary.",
+      analyzedAt: "2026-03-20T12:00:00.000Z",
+      recommendedSections: ["collection_grid"]
+    };
+    const mapping: ThemeMapping = {
+      sourceUrl: "https://example.com/collections/summer-gear",
+      title: "Summer Gear",
+      summary: "Collection mapping summary.",
+      mappedAt: "2026-03-20T12:01:00.000Z",
+      templatePath: "templates/collection.generated-reference.json",
+      sectionPath: "sections/generated-collection-reference.liquid",
+      sections: [
+        {
+          id: "collection-1",
+          type: "collection_grid",
+          heading: "Summer Gear",
+          body: "Collection copy"
+        }
+      ]
+    };
+
+    await generator.generate({ analysis, mapping });
+
+    const sectionContent = await readFile(join(themeRoot, "sections/generated-collection-reference.liquid"), "utf8");
+    const templateContent = await readFile(join(themeRoot, "templates/collection.generated-reference.json"), "utf8");
+
+    // Bug 5 fix: cards use <a href="{{ product.url }}"> instead of <article>
+    expect(sectionContent).toContain('<a class="generated-collection-reference__card" href="{{ product.url }}">');
+    expect(sectionContent).not.toContain("<article");
+
+    // Feature 1 fix: mapping_summary is absent from section HTML, schema settings, and template JSON
+    expect(sectionContent).not.toContain("section.settings.mapping_summary");
+    expect(sectionContent).not.toContain('"mapping_summary"');
+    expect(templateContent).not.toContain('"mapping_summary"');
   });
 });

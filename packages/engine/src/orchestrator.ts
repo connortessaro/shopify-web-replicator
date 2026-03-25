@@ -1,13 +1,8 @@
 import type {
   AppRuntimeConfig,
-  PageType,
-  ReferenceAnalysis,
   ReferenceIntake,
   ReplicationJob,
-  ReplicationJobSummary,
-  StoreSetupPlan,
-  ThemeCheckResult,
-  ThemeMapping
+  ReplicationJobSummary
 } from "@shopify-web-replicator/shared";
 import { createReplicationJob } from "@shopify-web-replicator/shared";
 
@@ -22,64 +17,7 @@ import { ShopifyStoreSetupGenerator } from "./services/store-setup-generator.js"
 import { DeterministicThemeMapper } from "./services/theme-mapper.js";
 import { ShopifyThemeGenerator } from "./services/theme-generator.js";
 import { ShopifyThemeValidator } from "./services/theme-validator.js";
-
-type Analyzer = {
-  analyze(input: { referenceUrl: string; pageType?: PageType; notes?: string }): Promise<ReferenceAnalysis>;
-};
-
-type Mapper = {
-  map(input: { analysis: ReferenceAnalysis; referenceUrl: string; notes?: string }): Promise<ThemeMapping>;
-};
-
-type Generator = {
-  generate(input: {
-    analysis: ReferenceAnalysis;
-    mapping: ThemeMapping;
-  }): Promise<{
-    artifacts: ReplicationJob["artifacts"];
-    generation: NonNullable<ReplicationJob["generation"]>;
-  }>;
-};
-
-type StoreSetupGenerator = {
-  generate(input: {
-    analysis: ReferenceAnalysis;
-    mapping: ThemeMapping;
-  }): Promise<{
-    artifact: ReplicationJob["artifacts"][number];
-    storeSetup: StoreSetupPlan;
-  }>;
-};
-
-type CommerceGenerator = {
-  generate(input: {
-    analysis: ReferenceAnalysis;
-    mapping: ThemeMapping;
-    storeSetup: StoreSetupPlan;
-  }): Promise<{
-    artifact: ReplicationJob["artifacts"][number];
-    commerce: NonNullable<ReplicationJob["commerce"]>;
-  }>;
-};
-
-type IntegrationGenerator = {
-  generate(input: {
-    analysis: ReferenceAnalysis;
-    mapping: ThemeMapping;
-    generation: NonNullable<ReplicationJob["generation"]>;
-    storeSetup: StoreSetupPlan;
-    commerce: NonNullable<ReplicationJob["commerce"]>;
-    artifacts: ReplicationJob["artifacts"];
-    validation: ThemeCheckResult;
-  }): Promise<{
-    artifact: ReplicationJob["artifacts"][number];
-    integration: NonNullable<ReplicationJob["integration"]>;
-  }>;
-};
-
-type ThemeValidator = {
-  validate(): Promise<ThemeCheckResult>;
-};
+import type { Analyzer, CommerceGenerator, Generator, IntegrationGenerator, Mapper, StoreSetupGenerator, ThemeValidator } from "./services/types.js";
 
 export interface ReplicationHandoff {
   job: ReplicationJob;
@@ -167,6 +105,50 @@ export class ReplicationOrchestrator {
     }
 
     return job;
+  }
+
+  async retryJob(jobId: string): Promise<ReplicationHandoff> {
+    const job = await this.repository.getById(jobId);
+
+    if (!job) {
+      throw new Error(`Missing job ${jobId}`);
+    }
+
+    if (job.status !== "failed") {
+      throw new Error(`Job ${jobId} is not in a failed state`);
+    }
+
+    for (const stage of job.stages) {
+      if (stage.status === "failed") {
+        stage.status = "pending";
+        delete stage.errorMessage;
+        delete stage.summary;
+      }
+    }
+
+    const firstPendingStage = job.stages.find((stage) => stage.status === "pending");
+    if (firstPendingStage) {
+      firstPendingStage.status = "current";
+      job.currentStage = firstPendingStage.name;
+    }
+
+    job.status = "in_progress";
+    delete job.error;
+
+    job.artifacts = job.artifacts.map((artifact) =>
+      artifact.status === "failed" ? { ...artifact, status: "pending" } : artifact
+    );
+
+    job.updatedAt = new Date().toISOString();
+    await this.repository.save(job);
+
+    const updatedJob = await this.runJob(jobId);
+
+    return {
+      job: updatedJob,
+      runtime: this.#runtime,
+      nextActions: buildNextActions(updatedJob)
+    };
   }
 
   async replicateStorefront(intake: ReferenceIntake): Promise<ReplicationHandoff> {
