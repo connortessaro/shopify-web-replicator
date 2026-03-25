@@ -225,25 +225,25 @@ export class ShopifyIntegrationReportGenerator {
       outputPath,
       `${JSON.stringify(
         {
-          generated_by: "Shopify Web Replicator",
-          checked_at: checkedAt,
-          source_url: analysis.sourceUrl,
-          page_type: analysis.pageType,
+          generatedBy: "Shopify Web Replicator",
+          checkedAt: checkedAt,
+          sourceUrl: analysis.sourceUrl,
+          pageType: analysis.pageType,
           title: analysis.title,
           summary: integration.summary,
-          mapping_summary: mapping.summary,
-          section_path: generation.sectionPath,
-          template_path: generation.templatePath,
-          store_setup_config_path: storeSetup.configPath,
-          commerce_snippet_path: commerce.snippetPath,
-          generated_artifacts: artifacts.map((artifact) => ({
+          mappingSummary: mapping.summary,
+          sectionPath: generation.sectionPath,
+          templatePath: generation.templatePath,
+          storeSetupConfigPath: storeSetup.configPath,
+          commerceSnippetPath: commerce.snippetPath,
+          generatedArtifacts: artifacts.map((artifact) => ({
             kind: artifact.kind,
             path: artifact.path,
             status: artifact.status,
             description: artifact.description,
-            last_written_at: artifact.lastWrittenAt
+            lastWrittenAt: artifact.lastWrittenAt
           })),
-          commerce_entrypoints: commerce.entrypoints,
+          commerceEntrypoints: commerce.entrypoints,
           validation,
           checks
         },

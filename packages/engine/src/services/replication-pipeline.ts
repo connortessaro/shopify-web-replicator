@@ -1,12 +1,6 @@
 import type {
-  CommerceWiringPlan,
-  PageType,
   PipelineStage,
-  ReferenceAnalysis,
-  ReplicationJob,
-  StoreSetupPlan,
-  ThemeCheckResult,
-  ThemeMapping
+  ReplicationJob
 } from "@shopify-web-replicator/shared";
 import {
   stableCommerceArtifact,
@@ -15,64 +9,7 @@ import {
 } from "@shopify-web-replicator/shared";
 
 import type { JobRepository } from "../repository/in-memory-job-repository.js";
-
-type Analyzer = {
-  analyze(input: { referenceUrl: string; pageType?: PageType; notes?: string }): Promise<ReferenceAnalysis>;
-};
-
-type Mapper = {
-  map(input: { analysis: ReferenceAnalysis; referenceUrl: string; notes?: string }): Promise<ThemeMapping>;
-};
-
-type Generator = {
-  generate(input: {
-    analysis: ReferenceAnalysis;
-    mapping: ThemeMapping;
-  }): Promise<{
-    artifacts: ReplicationJob["artifacts"];
-    generation: NonNullable<ReplicationJob["generation"]>;
-  }>;
-};
-
-type ThemeValidator = {
-  validate(): Promise<ThemeCheckResult>;
-};
-
-type StoreSetupGenerator = {
-  generate(input: {
-    analysis: ReferenceAnalysis;
-    mapping: ThemeMapping;
-  }): Promise<{
-    artifact: ReplicationJob["artifacts"][number];
-    storeSetup: StoreSetupPlan;
-  }>;
-};
-
-type CommerceGenerator = {
-  generate(input: {
-    analysis: ReferenceAnalysis;
-    mapping: ThemeMapping;
-    storeSetup: StoreSetupPlan;
-  }): Promise<{
-    artifact: ReplicationJob["artifacts"][number];
-    commerce: CommerceWiringPlan;
-  }>;
-};
-
-type IntegrationGenerator = {
-  generate(input: {
-    analysis: ReferenceAnalysis;
-    mapping: ThemeMapping;
-    generation: NonNullable<ReplicationJob["generation"]>;
-    storeSetup: StoreSetupPlan;
-    commerce: CommerceWiringPlan;
-    artifacts: ReplicationJob["artifacts"];
-    validation: ThemeCheckResult;
-  }): Promise<{
-    artifact: ReplicationJob["artifacts"][number];
-    integration: NonNullable<ReplicationJob["integration"]>;
-  }>;
-};
+import type { Analyzer, CommerceGenerator, Generator, IntegrationGenerator, Mapper, StoreSetupGenerator, ThemeValidator } from "./types.js";
 
 type ReplicationPipelineOptions = {
   repository: JobRepository;
@@ -219,10 +156,6 @@ export class ReplicationPipeline {
       const validation = await this.#themeValidator.validate();
       job.validation = validation;
 
-      if (validation.status === "failed") {
-        throw new Error(validation.summary);
-      }
-
       const validationTimestamp = validation.checkedAt ?? commerce.plannedAt;
       completeStage(job, "validation", validationTimestamp, validation.summary);
       startStage(job, "integration_check", validationTimestamp, "Preparing deterministic integration report.");
@@ -243,6 +176,10 @@ export class ReplicationPipeline {
         existingArtifact.path === integrationArtifact.path ? integrationArtifact : existingArtifact
       );
       job.updatedAt = integration.checkedAt;
+
+      if (validation.status === "failed") {
+        throw new Error(validation.summary);
+      }
 
       if (integration.status === "failed") {
         throw new Error(integration.summary);

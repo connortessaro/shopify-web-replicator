@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createReplicationJob, pipelineStages } from "./job";
+import { createReplicationJob, pipelineStages, referenceIntakeSchema } from "./job";
 
 describe("createReplicationJob", () => {
   it("creates a job ready for deterministic analysis with stable pending theme, setup, commerce, and integration artifacts", () => {
@@ -146,5 +146,35 @@ describe("createReplicationJob", () => {
         description: "Deterministic integration report covering theme, store setup, and commerce consistency"
       }
     ]);
+  });
+});
+
+describe("URL-based page-type inference", () => {
+  it.each([
+    ["https://example.com/products/trail-pack", "product_page"],
+    ["https://example.com/collections/summer", "collection_page"],
+    ["https://example.com/", "homepage"],
+    ["https://example.com/offer", "landing_page"]
+  ] as const)("%s → %s", (url, expectedPageType) => {
+    const job = createReplicationJob({ referenceUrl: url });
+    expect(job.intake.pageType).toBe(expectedPageType);
+  });
+});
+
+describe("referenceIntakeSchema", () => {
+  it("rejects notes longer than 500 characters", () => {
+    const result = referenceIntakeSchema.safeParse({
+      referenceUrl: "https://example.com",
+      notes: "a".repeat(501)
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts notes at exactly 500 characters", () => {
+    const result = referenceIntakeSchema.safeParse({
+      referenceUrl: "https://example.com",
+      notes: "a".repeat(500)
+    });
+    expect(result.success).toBe(true);
   });
 });

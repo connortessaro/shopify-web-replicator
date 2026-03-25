@@ -153,7 +153,7 @@ describe("ShopifyIntegrationReportGenerator", () => {
       summary: "All deterministic integration checks passed for Example Storefront."
     });
     await expect(readFile(join(themeRoot, "config/generated-integration-report.json"), "utf8")).resolves.toContain(
-      "\"generated_artifacts\""
+      "\"generatedArtifacts\""
     );
   });
 
