@@ -106,6 +106,19 @@ function toSerializableRecord(value: unknown): Record<string, unknown> {
   return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
 }
 
+function toToolError(error: unknown): {
+  content: ToolTextContent[];
+  structuredContent: Record<string, unknown>;
+  isError: true;
+} {
+  const message = error instanceof Error ? error.message : String(error);
+  return {
+    content: [{ type: "text", text: message }],
+    structuredContent: { error: { code: "tool_execution_failed", message } },
+    isError: true
+  };
+}
+
 function toStructuredContent(handoff: ReplicationHandoff): ReplicationToolStructuredContent {
   const { job, nextActions, runtime } = handoff;
   const destinationStore = runtime.destinationStores.find((store) => store.id === job.intake.destinationStore);
@@ -228,13 +241,17 @@ export function createReplicatorMcpServer(orchestrator: ReplicatorMcpAdapter): M
       }
     },
     async (input) => {
-      const result = await handlers.replicateStorefront(input);
+      try {
+        const result = await handlers.replicateStorefront(input);
 
-      return {
-        content: result.content,
-        structuredContent: toSerializableRecord(result.structuredContent),
-        ...(result.isError ? { isError: true as const } : {})
-      };
+        return {
+          content: result.content,
+          structuredContent: toSerializableRecord(result.structuredContent),
+          ...(result.isError ? { isError: true as const } : {})
+        };
+      } catch (error) {
+        return toToolError(error);
+      }
     }
   );
 
@@ -253,12 +270,16 @@ export function createReplicatorMcpServer(orchestrator: ReplicatorMcpAdapter): M
       }
     },
     async (input) => {
-      const result = await handlers.enqueueHydrogenReplication(input);
+      try {
+        const result = await handlers.enqueueHydrogenReplication(input);
 
-      return {
-        content: result.content,
-        structuredContent: toSerializableRecord(result.structuredContent)
-      };
+        return {
+          content: result.content,
+          structuredContent: toSerializableRecord(result.structuredContent)
+        };
+      } catch (error) {
+        return toToolError(error);
+      }
     }
   );
 
@@ -272,13 +293,17 @@ export function createReplicatorMcpServer(orchestrator: ReplicatorMcpAdapter): M
       }
     },
     async ({ jobId }) => {
-      const result = await handlers.getReplicationJob({ jobId });
+      try {
+        const result = await handlers.getReplicationJob({ jobId });
 
-      return {
-        content: result.content,
-        structuredContent: toSerializableRecord(result.structuredContent),
-        ...(result.isError ? { isError: true as const } : {})
-      };
+        return {
+          content: result.content,
+          structuredContent: toSerializableRecord(result.structuredContent),
+          ...(result.isError ? { isError: true as const } : {})
+        };
+      } catch (error) {
+        return toToolError(error);
+      }
     }
   );
 
@@ -292,15 +317,19 @@ export function createReplicatorMcpServer(orchestrator: ReplicatorMcpAdapter): M
       }
     },
     async ({ limit }) => {
-      const result = await handlers.listReplicationJobs(limit === undefined ? {} : { limit });
+      try {
+        const result = await handlers.listReplicationJobs(limit === undefined ? {} : { limit });
 
-      return {
-        content: result.content,
-        structuredContent: {
-          jobs: JSON.parse(JSON.stringify(result.structuredContent)) as ReplicationJobSummary[]
-        },
-        ...(result.isError ? { isError: true as const } : {})
-      };
+        return {
+          content: result.content,
+          structuredContent: {
+            jobs: JSON.parse(JSON.stringify(result.structuredContent)) as ReplicationJobSummary[]
+          },
+          ...(result.isError ? { isError: true as const } : {})
+        };
+      } catch (error) {
+        return toToolError(error);
+      }
     }
   );
 
