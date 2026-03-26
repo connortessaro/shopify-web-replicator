@@ -105,4 +105,180 @@ describe("StorefrontModelBuilder", () => {
       expect.objectContaining({ kind: "product_page", handle: "trail-pack" })
     ]);
   });
+
+  it("deduplicates products and collections by handle and keeps first route title fallback order", async () => {
+    const builder = new StorefrontModelBuilder();
+
+    const model = await builder.build({
+      referenceUrl: "https://example.com",
+      capture: {
+        ...createCapture(),
+        title: "Duplicate Store",
+        routes: [
+          {
+            kind: "homepage",
+            url: "https://example.com/",
+            referenceHost: "example.com",
+            title: "Duplicate Store",
+            headingOutline: ["Duplicate Store"],
+            navigationLinks: [],
+            primaryCtas: [],
+            imageAssets: [],
+            styleTokens: {
+              dominantColors: ["rgb(0, 0, 0)"],
+              fontFamilies: ["Inter"]
+            },
+            captureBundlePath: "/tmp/captures/job_123/home/capture-bundle.json",
+            desktopScreenshotPath: "/tmp/captures/job_123/home/desktop.jpg",
+            mobileScreenshotPath: "/tmp/captures/job_123/home/mobile.jpg"
+          },
+          {
+            kind: "product_page",
+            url: "https://example.com/products/trail-pack?variant=1",
+            handle: "trail-pack",
+            referenceHost: "example.com",
+            headingOutline: ["Trail Pack Variant"],
+            navigationLinks: [],
+            primaryCtas: [],
+            imageAssets: [],
+            styleTokens: { dominantColors: ["rgb(255, 255, 255)"], fontFamilies: ["Inter"] },
+            captureBundlePath: "/tmp/captures/job_123/product-variant/capture-bundle.json",
+            desktopScreenshotPath: "/tmp/captures/job_123/product-variant/desktop.jpg",
+            mobileScreenshotPath: "/tmp/captures/job_123/product-variant/mobile.jpg"
+          },
+          {
+            kind: "product_page",
+            url: "https://example.com/products/trail-pack?variant=2",
+            handle: "trail-pack",
+            referenceHost: "example.com",
+            headingOutline: ["Trail Pack Variant 2"],
+            navigationLinks: [],
+            primaryCtas: [],
+            imageAssets: [],
+            styleTokens: { dominantColors: ["rgb(255, 255, 255)"], fontFamilies: ["Inter"] },
+            captureBundlePath: "/tmp/captures/job_123/product-variant2/capture-bundle.json",
+            desktopScreenshotPath: "/tmp/captures/job_123/product-variant2/desktop.jpg",
+            mobileScreenshotPath: "/tmp/captures/job_123/product-variant2/mobile.jpg"
+          },
+          {
+            kind: "product_page",
+            url: "https://example.com/products/trail-pack?variant=3",
+            handle: "trail-pack",
+            referenceHost: "example.com",
+            headingOutline: ["Trail Pack Variant 3"],
+            navigationLinks: [],
+            primaryCtas: [],
+            imageAssets: [],
+            styleTokens: { dominantColors: ["rgb(255, 255, 255)"], fontFamilies: ["Inter"] },
+            captureBundlePath: "/tmp/captures/job_123/product-variant3/capture-bundle.json",
+            desktopScreenshotPath: "/tmp/captures/job_123/product-variant3/desktop.jpg",
+            mobileScreenshotPath: "/tmp/captures/job_123/product-variant3/mobile.jpg"
+          },
+          {
+            kind: "collection_page",
+            url: "https://example.com/collections/trail",
+            handle: "trail",
+            referenceHost: "example.com",
+            headingOutline: ["Trail Collection"],
+            navigationLinks: [],
+            primaryCtas: [],
+            imageAssets: [],
+            styleTokens: { dominantColors: ["rgb(255, 255, 255)"], fontFamilies: ["Inter"] },
+            captureBundlePath: "/tmp/captures/job_123/collection/capture-bundle.json",
+            desktopScreenshotPath: "/tmp/captures/job_123/collection/desktop.jpg",
+            mobileScreenshotPath: "/tmp/captures/job_123/collection/mobile.jpg"
+          },
+          {
+            kind: "collection_page",
+            url: "https://example.com/collections/trail#featured",
+            handle: "trail",
+            referenceHost: "example.com",
+            headingOutline: ["Trail Collection Duplicate"],
+            navigationLinks: [],
+            primaryCtas: [],
+            imageAssets: [],
+            styleTokens: { dominantColors: ["rgb(255, 255, 255)"], fontFamilies: ["Inter"] },
+            captureBundlePath: "/tmp/captures/job_123/collection2/capture-bundle.json",
+            desktopScreenshotPath: "/tmp/captures/job_123/collection2/desktop.jpg",
+            mobileScreenshotPath: "/tmp/captures/job_123/collection2/mobile.jpg"
+          }
+        ],
+        navigationLinks: [
+          {
+            label: "Homepage",
+            href: "https://example.com/?ref=home"
+          },
+          {
+            label: "Search",
+            href: "https://example.com/search?q=trail"
+          },
+          {
+            label: "Relative",
+            href: "/collections/trail"
+          }
+        ],
+        primaryCtas: []
+      },
+      routeInventory: {
+        discoveredAt: "2026-03-21T18:00:10.000Z",
+        referenceHost: "example.com",
+        summary: "Deduped 6 routes.",
+        routes: [
+          { kind: "homepage", source: "root", url: "https://example.com/" },
+          { kind: "product_page", handle: "trail-pack", source: "cta", url: "https://example.com/products/trail-pack?variant=1" },
+          { kind: "product_page", handle: "trail-pack", source: "cta", url: "https://example.com/products/trail-pack?variant=2" },
+          { kind: "collection_page", handle: "trail", source: "navigation", url: "https://example.com/collections/trail" },
+          { kind: "collection_page", handle: "trail", source: "navigation", url: "https://example.com/collections/trail?view=grid" }
+        ]
+      }
+    });
+
+    expect(model.products).toEqual([
+      {
+        handle: "trail-pack",
+        title: "trail-pack",
+        merchandisingRole: "Primary offer for the generated storefront."
+      }
+    ]);
+    expect(model.collections).toEqual([
+      expect.objectContaining({
+        handle: "trail",
+        title: "trail",
+        featuredProductHandles: ["trail-pack"]
+      })
+    ]);
+  });
+
+  it("uses fallback menu targets when menu href cannot be parsed as a URL", async () => {
+    const builder = new StorefrontModelBuilder();
+
+    const model = await builder.build({
+      referenceUrl: "https://example.com",
+      capture: {
+        ...createCapture(),
+        navigationLinks: [{ label: "Invalid", href: "not-a-url" }]
+      },
+      routeInventory: {
+        discoveredAt: "2026-03-21T18:00:10.000Z",
+        referenceHost: "example.com",
+        summary: "Invalid menu entry.",
+        routes: [
+          { kind: "homepage", source: "root", url: "https://example.com/" }
+        ]
+      }
+    });
+
+    expect(model.menus).toEqual([
+      {
+        handle: "main-menu",
+        title: "Main menu",
+        items: [
+          {
+            title: "Invalid",
+            target: "not-a-url"
+          }
+        ]
+      }
+    ]);
+  });
 });

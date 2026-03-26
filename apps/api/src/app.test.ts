@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createReplicationJob } from "@shopify-web-replicator/shared";
 
+import type { JobRepository } from "./repository/in-memory-job-repository";
 import { SqliteJobRepository } from "./repository/sqlite-job-repository";
 import { createApp } from "./app";
 
@@ -296,6 +297,44 @@ describe("createApp", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
       error: "Invalid intake payload"
+    });
+  });
+
+  it("falls back to the default job list limit for invalid query values", async () => {
+    const listRecent = vi.fn().mockResolvedValue([]);
+    const repository = {
+      save: vi.fn(),
+      getById: vi.fn(),
+      listRecent
+    } as JobRepository;
+
+    const app = createApp({ repository });
+    const response = await app.request("/api/jobs?limit=abc");
+
+    expect(response.status).toBe(200);
+    expect(listRecent).toHaveBeenCalledWith(10);
+    await expect(response.json()).resolves.toEqual([]);
+  });
+
+  it("returns an error when createJob rejects", async () => {
+    const app = createApp({
+      createJob: vi.fn().mockRejectedValue(new Error("engine offline"))
+    });
+
+    const response = await app.request("/api/jobs", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        referenceUrl: "https://example.com",
+        destinationStore: "local-dev-store"
+      })
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "engine offline"
     });
   });
 

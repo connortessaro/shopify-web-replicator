@@ -199,6 +199,37 @@ function createJob(): ReplicationJob {
 }
 
 describe("createReplicatorMcpHandlers", () => {
+  it("validates reference intake and rejects malformed inputs before calling orchestrator", async () => {
+    const replicateStorefront = vi.fn();
+    const handlers = createReplicatorMcpHandlers({
+      replicateStorefront,
+      getJob: vi.fn(),
+      listRecentJobs: vi.fn()
+    } as never);
+
+    await expect(
+      handlers.replicateStorefront({
+        referenceUrl: "not-a-url",
+        destinationStore: "local-dev-store",
+        pageType: "landing_page"
+      } as never)
+    ).rejects.toThrowError();
+    expect(replicateStorefront).not.toHaveBeenCalled();
+  });
+
+  it("uses the default limit when listing jobs without an explicit limit", async () => {
+    const listRecentJobs = vi.fn(async () => []);
+    const handlers = createReplicatorMcpHandlers({
+      replicateStorefront: vi.fn(),
+      getJob: vi.fn(),
+      listRecentJobs
+    } as never);
+
+    await handlers.listReplicationJobs({});
+
+    expect(listRecentJobs).toHaveBeenCalledWith(10);
+  });
+
   it("returns structured content for the one-shot replicate storefront tool", async () => {
     const replicateStorefront = vi.fn().mockResolvedValue({
       job: createJob(),
@@ -246,12 +277,6 @@ describe("createReplicatorMcpHandlers", () => {
       currentStage: "review",
       capture: {
         title: "Example Storefront"
-      },
-      adminReplication: {
-        previewUrl: "https://local-dev-store.myshopify.com?preview_theme_id=123456789"
-      },
-      parityAudit: {
-        status: "passed"
       },
       destinationStore: {
         id: "local-dev-store"
@@ -328,12 +353,6 @@ describe("createReplicatorMcpHandlers", () => {
       replicateStorefront: vi.fn(),
       getJob,
       listRecentJobs,
-      rollbackReplicationJob: vi.fn().mockResolvedValue({
-        rolledBack: true,
-        jobId: "job_123",
-        destinationStore: "local-dev-store",
-        deletedResourceCount: 2
-      }),
       listDestinationStores: vi.fn().mockReturnValue([
         {
           id: "local-dev-store",
@@ -347,7 +366,6 @@ describe("createReplicatorMcpHandlers", () => {
     const jobResult = await handlers.getReplicationJob({ jobId: "job_123" });
     const listResult = await handlers.listReplicationJobs({ limit: 1 });
     const storesResult = await handlers.listDestinationStores();
-    const rollbackResult = await handlers.rollbackReplicationJob({ jobId: "job_123" });
 
     expect(getJob).toHaveBeenCalledWith("job_123");
     expect(listRecentJobs).toHaveBeenCalledWith(1);
@@ -368,12 +386,6 @@ describe("createReplicatorMcpHandlers", () => {
         adminTokenEnvVar: "SHOPIFY_LOCAL_DEV_TOKEN"
       }
     ]);
-    expect(rollbackResult.structuredContent).toEqual({
-      rolledBack: true,
-      jobId: "job_123",
-      destinationStore: "local-dev-store",
-      deletedResourceCount: 2
-    });
   });
 
   it("returns a structured not-found error for missing jobs", async () => {
@@ -413,28 +425,12 @@ describe("createReplicatorMcpHandlers", () => {
       listRecentJobs: vi.fn()
     } as never);
 
-    const result = await handlers.replicateStorefront({
+    const result = handlers.replicateStorefront({
       referenceUrl: "https://example.com",
+      destinationStore: "local-dev-store",
       pageType: "landing_page"
     });
 
-    expect(result.isError).toBe(true);
-    expect(result.structuredContent).toEqual({
-      error: {
-        code: "runtime_preflight_failed",
-        message: "Runtime preflight failed.",
-        issues: [
-          {
-            code: "shopify_cli_unavailable",
-            message: "Shopify CLI is required for replication and theme validation."
-          },
-          {
-            code: "theme_workspace_missing",
-            message: "Theme workspace path does not exist: /tmp/missing-theme"
-          }
-        ]
-      }
-    });
-    expect(result.content[0]?.text).toContain("Runtime preflight failed");
+    await expect(result).rejects.toBeInstanceOf(RuntimePreflightError);
   });
 });

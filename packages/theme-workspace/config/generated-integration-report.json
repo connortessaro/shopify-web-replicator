@@ -1,5 +1,94 @@
 {
   "generatedBy": "Shopify Web Replicator",
-  "status": "pending",
-  "summary": "Stable placeholder for deterministic integration report output."
+  "checkedAt": "2026-03-25T02:07:09.353Z",
+  "sourceUrl": "https://kip.life/pages/faq",
+  "pageType": "landing_page",
+  "title": "Faq",
+  "summary": "All deterministic integration checks passed for Faq.",
+  "mappingSummary": "Mapped Faq into the stable generated landing template.",
+  "sectionPath": "sections/generated-reference.liquid",
+  "templatePath": "templates/page.generated-reference.json",
+  "storeSetupConfigPath": "config/generated-store-setup.json",
+  "commerceSnippetPath": "snippets/generated-commerce-wiring.liquid",
+  "generatedArtifacts": [
+    {
+      "kind": "section",
+      "path": "sections/generated-reference.liquid",
+      "status": "generated",
+      "description": "Primary generated landing section output",
+      "lastWrittenAt": "2026-03-25T02:07:06.554Z"
+    },
+    {
+      "kind": "template",
+      "path": "templates/page.generated-reference.json",
+      "status": "generated",
+      "description": "Generated JSON template that references the stable landing section",
+      "lastWrittenAt": "2026-03-25T02:07:06.554Z"
+    },
+    {
+      "kind": "config",
+      "path": "config/generated-store-setup.json",
+      "status": "generated",
+      "description": "Deterministic store setup plan covering products, collections, menus, and structured content",
+      "lastWrittenAt": "2026-03-25T02:07:06.554Z"
+    },
+    {
+      "kind": "snippet",
+      "path": "snippets/generated-commerce-wiring.liquid",
+      "status": "generated",
+      "description": "Deterministic commerce wiring snippet covering cart entrypoints and native checkout handoff",
+      "lastWrittenAt": "2026-03-25T02:07:06.554Z"
+    },
+    {
+      "kind": "config",
+      "path": "config/generated-integration-report.json",
+      "status": "pending",
+      "description": "Deterministic integration report covering theme, store setup, and commerce consistency"
+    }
+  ],
+  "commerceEntrypoints": [
+    {
+      "label": "Primary CTA",
+      "target": "/products/faq",
+      "behavior": "Directs the operator to the primary commerce entrypoint before add-to-cart."
+    },
+    {
+      "label": "Cart review",
+      "target": "/cart",
+      "behavior": "Verifies native Shopify cart to checkout handoff."
+    }
+  ],
+  "validation": {
+    "status": "passed",
+    "summary": "Theme check passed.",
+    "checkedAt": "2026-03-25T02:07:09.353Z",
+    "output": "╭─ success ────────────────────────────────────────────────────────────────────╮\n│                                                                              │\n│  Theme Check Summary.                                                        │\n│                                                                              │\n│  50 files inspected with no offenses found.                                  │\n│                                                                              │\n╰──────────────────────────────────────────────────────────────────────────────╯\n\n"
+  },
+  "checks": [
+    {
+      "id": "generated_artifacts",
+      "status": "passed",
+      "details": "Theme, store setup, and commerce artifacts are all generated."
+    },
+    {
+      "id": "commerce_entrypoints",
+      "status": "passed",
+      "details": "Commerce entrypoints resolve against generated products, collections, or native Shopify cart and checkout paths."
+    },
+    {
+      "id": "commerce_snippet_reference",
+      "status": "passed",
+      "details": "Generated section renders the deterministic commerce wiring snippet."
+    },
+    {
+      "id": "commerce_snippet_file",
+      "status": "passed",
+      "details": "Generated commerce snippet includes the native checkout handoff path."
+    },
+    {
+      "id": "theme_validation",
+      "status": "passed",
+      "details": "Theme check passed."
+    }
+  ]
 }

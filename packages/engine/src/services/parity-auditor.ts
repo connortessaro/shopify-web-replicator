@@ -7,6 +7,7 @@ import type {
 
 import type { StorefrontInspection } from "./storefront-inspector.js";
 import { StorefrontInspector } from "./storefront-inspector.js";
+import { stat } from "node:fs/promises";
 
 type InspectorLike = Pick<StorefrontInspector, "inspect">;
 
@@ -36,7 +37,10 @@ function buildPreviewRouteUrl(previewUrl: string, sourceUrl: string): string {
   return preview.toString();
 }
 
-function scoreInspection(source: StorefrontInspection, destination: StorefrontInspection): Omit<ParityRouteResult, "kind" | "url" | "previewUrl"> {
+async function scoreInspection(
+  source: StorefrontInspection,
+  destination: StorefrontInspection
+): Promise<Omit<ParityRouteResult, "kind" | "url" | "previewUrl">> {
   const headingScore = overlapScore(source.headingOutline, destination.headingOutline);
   const navigationScore = overlapScore(
     source.navigationLinks.map((link) => link.label),
@@ -50,7 +54,17 @@ function scoreInspection(source: StorefrontInspection, destination: StorefrontIn
     Math.abs(source.imageAssets.length - destination.imageAssets.length) === 0
       ? 1
       : Math.max(0, 1 - Math.abs(source.imageAssets.length - destination.imageAssets.length) / 5);
-  const visualSimilarity = Number(((headingScore + navigationScore + ctaScore + imageScore) / 4).toFixed(2));
+  const screenshotSizeScore = await scoreScreenshotSimilarity(
+    source.desktopScreenshotPath,
+    destination.desktopScreenshotPath
+  );
+  const components = [headingScore, navigationScore, ctaScore, imageScore];
+
+  if (typeof screenshotSizeScore.score === "number") {
+    components.push(screenshotSizeScore.score);
+  }
+
+  const visualSimilarity = Number((components.reduce((total, score) => total + score, 0) / components.length).toFixed(2));
   const notes: string[] = [];
 
   if (visualSimilarity < 0.85) {
@@ -65,14 +79,58 @@ function scoreInspection(source: StorefrontInspection, destination: StorefrontIn
     notes.push("Primary CTA labels changed between source and destination.");
   }
 
+  if (screenshotSizeScore.isMissing) {
+    notes.push(screenshotSizeScore.note);
+  }
+
+  if (typeof screenshotSizeScore.score === "number" && screenshotSizeScore.score < 0.8) {
+    notes.push("Screenshot byte-size drift is significant; visual parity may be degraded.");
+  }
+
+  const computedStatus: ParityStatus = visualSimilarity >= 0.85 ? "matched" : visualSimilarity >= 0.6 ? "warning" : "failed";
+
   return {
-    status: visualSimilarity >= 0.85 ? "matched" : visualSimilarity >= 0.6 ? "warning" : "failed",
+    status: screenshotSizeScore.isMissing ? (computedStatus === "matched" ? "warning" : computedStatus) : computedStatus,
     visualSimilarity,
     sourceTitle: source.title,
     destinationTitle: destination.title,
     notes
   };
 }
+
+async function scoreScreenshotSimilarity(sourceDesktopScreenshotPath: string, destinationDesktopScreenshotPath: string): Promise<{
+  score?: number;
+  isMissing: boolean;
+  note: string;
+}> {
+  try {
+    const [sourceStat, destinationStat] = await Promise.all([
+      stat(sourceDesktopScreenshotPath),
+      stat(destinationDesktopScreenshotPath)
+    ]);
+
+    if (sourceStat.size <= 0 || destinationStat.size <= 0) {
+      return {
+        isMissing: true,
+        note: "Screenshot file is empty; visual parity comparison is not reliable."
+      };
+    }
+
+    const sizeRatio = Math.min(sourceStat.size, destinationStat.size) / Math.max(sourceStat.size, destinationStat.size);
+    return {
+      score: Number(sizeRatio.toFixed(2)),
+      isMissing: false,
+      note: "Screenshot size comparison used for coarse visual parity."
+    };
+  } catch {
+    return {
+      isMissing: true,
+      note: "Screenshot comparison is unavailable because one or both screenshot files are missing."
+    };
+  }
+}
+
+type ParityStatus = "matched" | "warning" | "failed";
 
 export class StorefrontParityAuditor {
   readonly #inspector: InspectorLike;
@@ -101,7 +159,7 @@ export class StorefrontParityAuditor {
 
     const routes: ParityRouteResult[] = [];
 
-    for (const route of sourceRoutes) {
+  for (const route of sourceRoutes) {
       const previewUrl = buildPreviewRouteUrl(adminReplication.previewUrl, route.url);
       const destinationInspection = await this.#inspector.inspect({
         jobId: `${jobId ?? "parity"}-${route.kind}`,
@@ -111,7 +169,7 @@ export class StorefrontParityAuditor {
         jobId: `${jobId ?? "parity"}-source-${route.kind}`,
         referenceUrl: route.url
       });
-      const scored = scoreInspection(sourceInspection, destinationInspection);
+      const scored = await scoreInspection(sourceInspection, destinationInspection);
 
       routes.push({
         kind: route.kind,

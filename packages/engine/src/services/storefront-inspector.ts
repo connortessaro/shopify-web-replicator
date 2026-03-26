@@ -29,6 +29,7 @@ type RawStorefrontInspection = {
   styleTokens: ReferenceStyleTokens;
   routeHints: ReferenceRouteHints;
   evidence: string[];
+  captureWarnings: string[];
   httpStatus?: number;
   isPasswordProtected: boolean;
   shopDomain?: string;
@@ -64,6 +65,23 @@ type StorefrontBrowserAdapter = {
   inspect(input: { referenceUrl: string }): Promise<RawStorefrontInspection>;
 };
 
+type CaptureStabilizationOptions = {
+  maxScrollSteps?: number;
+  postCaptureDelayMs?: number;
+};
+
+type CapturePage = {
+  waitForSelector: (selector: string, options: { timeout: number }) => Promise<unknown>;
+  waitForFunction: (fn: () => boolean | Promise<boolean>, options: { timeout: number }) => Promise<unknown>;
+  evaluate: <R, TArgs extends unknown[] = unknown[]>(
+    fn: (...args: TArgs) => R | Promise<R>,
+    ...args: TArgs
+  ) => Promise<R>;
+  waitForTimeout: (ms: number) => Promise<void>;
+  setViewportSize: (viewport: { width: number; height: number }) => Promise<void>;
+  emulateMedia?: (media: { reducedMotion: "reduce" | "no-preference" }) => Promise<void>;
+};
+
 function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
@@ -86,7 +104,284 @@ function uniqueStrings(values: Array<string | undefined>): string[] {
   return [...new Set(values.filter((value): value is string => Boolean(value && value.trim().length > 0)))];
 }
 
-function extractHandle(href: string, prefix: "/products/" | "/collections/"): string | undefined {
+const captureWarnings = {
+  botProtection: "bot_protection_or_block_page_detected"
+};
+
+const botProtectionSignatures = [
+  /just a moment/i,
+  /cloudflare/i,
+  /attention required/i,
+  /challenge/i,
+  /unusual traffic/i,
+  /captcha/i,
+  /access denied/i,
+  /please verify/i,
+  /request denied/i,
+  /forbidden/i
+];
+
+export function detectCaptureWarnings(textContent: string, html: string, title: string): string[] {
+  const normalizedText = normalizeWhitespace(`${textContent} ${title}`).toLowerCase();
+  const warnings: string[] = [];
+
+  if (botProtectionSignatures.some((signature) => signature.test(normalizedText) || signature.test(html.toLowerCase()))) {
+    warnings.push(captureWarnings.botProtection);
+  }
+
+  if (textContent.length < 220) {
+    warnings.push("sparse_text_signal");
+  }
+
+  return warnings;
+}
+
+function addCaptureHardeningCss(page: { addInitScript: (fn: () => void) => void }) {
+  page.addInitScript(() => {
+    const style = document.createElement("style");
+    style.setAttribute("data-storefront-inspector", "capture-hardening");
+    style.textContent =
+      "* { animation-duration: 0.001ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; transition-delay: 0ms !important; } " +
+      "*, *::before, *::after { transition-duration: 0.001ms !important; transition-delay: 0ms !important; } " +
+      "html { scroll-behavior: auto !important; } " +
+      "body { overflow-anchor: none !important; }";
+    document.documentElement.appendChild(style);
+  });
+
+  page.addInitScript(() => {
+    try {
+      Object.defineProperty(navigator, "webdriver", {
+        get: () => undefined
+      });
+      Object.defineProperty(navigator, "plugins", {
+        get: () => [1, 2, 3, 4, 5, 6]
+      });
+      Object.defineProperty(navigator, "languages", {
+        get: () => ["en-US", "en"]
+      });
+      Object.defineProperty((window as Window & { chrome?: unknown }).navigator, "mimeTypes", {
+        get: () => [1, 2, 3, 4, 5]
+      });
+    } catch {
+      // Ignore if browser API does not allow property overrides.
+    }
+  });
+}
+
+function suppressTransientOverlays(page: { evaluate: CapturePage["evaluate"] }) {
+  return page.evaluate(() => {
+    const selectors = [
+      "[id*='cookie']",
+      "[class*='cookie']",
+      "[id*='gdpr']",
+      "[class*='gdpr']",
+      "[id*='consent']",
+      "[class*='consent']",
+      "[id*='privacy']",
+      "[class*='privacy']",
+      "[id*='newsletter']",
+      "[class*='newsletter']",
+      "#onetrust-banner-sdk",
+      ".onetrust-pc-dark-filter",
+      ".eu-cookie-notice",
+      "[data-testid*='cookie']",
+      "[data-testid*='consent']",
+      "#cookie-consent-block"
+    ];
+
+    for (const candidate of Array.from(document.querySelectorAll<HTMLElement>(selectors.join(",")))) {
+      candidate.style.setProperty("display", "none", "important");
+    }
+
+    const fixedCover = Array.from(
+      document.querySelectorAll<HTMLElement>("*[style*='position: fixed'], *[style*='position:fixed']")
+    );
+
+    for (const overlay of fixedCover) {
+      const styles = getComputedStyle(overlay);
+      if (styles.position === "fixed" && styles.zIndex !== "auto") {
+        const zIndex = Number(styles.zIndex);
+        if (!Number.isNaN(zIndex) && zIndex >= 1000) {
+          overlay.style.setProperty("visibility", "hidden", "important");
+        }
+      }
+    }
+
+    const closeButtons = Array.from(
+      document.querySelectorAll<HTMLElement>("button, [role='button'], [type='button']")
+    );
+
+    for (const button of closeButtons) {
+      const label = button.textContent?.trim().toLowerCase();
+      if (!label) {
+        continue;
+      }
+
+      if (/\b(accept|allow|got it|agree|ok|close|understand)\b/i.test(label)) {
+        button.click();
+      }
+    }
+  });
+}
+
+async function waitForStableHeight(page: CapturePage) {
+  await page
+    .evaluate(async () => {
+      const readHeight = () => Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+      let stableSteps = 0;
+      let previousHeight = readHeight();
+
+      for (let i = 0; i < 24; i += 1) {
+        await new Promise((resolve) => {
+          window.setTimeout(resolve, 250);
+        });
+
+        const currentHeight = readHeight();
+        if (Math.abs(currentHeight - previousHeight) <= 2) {
+          stableSteps += 1;
+        } else {
+          stableSteps = 0;
+        }
+
+        if (stableSteps >= 3) {
+          return;
+        }
+
+        previousHeight = currentHeight;
+      }
+    })
+    .catch(() => {});
+}
+
+async function waitForNetworkQuiet(page: CapturePage) {
+  await page
+    .evaluate(async () => {
+      const images = Array.from(document.images).filter((img) => !img.complete);
+      if (images.length === 0) {
+        return;
+      }
+
+      await Promise.all(
+        images.map(
+          (image) =>
+            new Promise<void>((resolve) => {
+              if (image.complete) {
+                resolve();
+                return;
+              }
+
+              const listener = () => {
+                image.removeEventListener("load", listener);
+                image.removeEventListener("error", listener);
+                resolve();
+              };
+
+              image.addEventListener("load", listener);
+              image.addEventListener("error", listener);
+            })
+        )
+      );
+    })
+    .catch(() => {});
+}
+
+export function buildContextOptions(viewport: { width: number; height: number }) {
+  const isMobile = viewport.width <= 560;
+  const colorSchemeOverride = process.env.REPLICATOR_CAPTURE_COLOR_SCHEME;
+  const colorScheme = colorSchemeOverride === "dark" || colorSchemeOverride === "light" ? colorSchemeOverride : "light";
+
+  return {
+    viewport,
+    hasTouch: isMobile,
+    isMobile,
+    deviceScaleFactor: isMobile ? 3 : 1,
+    locale: process.env.REPLICATOR_CAPTURE_LOCALE ?? "en-US",
+    timezoneId: process.env.REPLICATOR_CAPTURE_TIMEZONE ?? "America/New_York",
+    colorScheme: colorScheme as "light" | "dark"
+  };
+}
+
+function resolveContextUserAgent(provided?: string) {
+  return (
+    provided ??
+    process.env.REPLICATOR_CAPTURE_USER_AGENT ??
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+  );
+}
+
+function resolveHeadlessPlaywright() {
+  const value = process.env.REPLICATOR_PLAYWRIGHT_HEADLESS;
+  if (value === undefined) {
+    return true;
+  }
+
+  return !["false", "0", "no"].includes(value.toLowerCase());
+}
+
+function buildLaunchOptions() {
+  const channel = process.env.REPLICATOR_PLAYWRIGHT_CHANNEL?.trim();
+
+  return {
+    headless: resolveHeadlessPlaywright(),
+    args: [
+      "--disable-blink-features=AutomationControlled",
+      "--no-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-features=IsolateOrigins,site-per-process"
+    ],
+    ...(channel ? { channel } : {})
+  };
+}
+
+async function waitForCaptureReadiness(
+  page: CapturePage,
+  options: CaptureStabilizationOptions = {}
+) {
+  const maxSteps = options.maxScrollSteps ?? 12;
+  const postCaptureDelayMs = options.postCaptureDelayMs ?? 500;
+  const criticalSelectors = ["main", "[role='main']", ".shopify-section", "header", "nav", "footer"];
+
+  for (const selector of criticalSelectors) {
+    const found = await page
+      .waitForSelector(selector, { timeout: 2_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (found) break;
+  }
+
+  await page.waitForFunction(() => document.readyState === "complete", { timeout: 10_000 }).catch(() => {});
+
+  await page.evaluate(() => (document as Document & { fonts?: FontFaceSet }).fonts?.ready ?? Promise.resolve()).catch(() => {});
+
+  await page
+    .evaluate((steps: number) => {
+      return new Promise<void>((resolve) => {
+        const body = document.body;
+        if (!body) {
+          resolve();
+          return;
+        }
+
+        const totalHeight = Math.max(0, document.body.scrollHeight - window.innerHeight);
+        const step = Math.max(1, Math.floor(steps));
+        const segment = step > 0 ? totalHeight / step : totalHeight;
+        for (let i = 0; i <= step; i += 1) {
+          const position = Math.round(Math.min(totalHeight, segment * i));
+          window.scrollTo(0, position);
+        }
+
+        window.scrollTo(0, 0);
+        resolve();
+      });
+    }, maxSteps)
+    .catch(() => {});
+
+  await waitForStableHeight(page);
+  await waitForNetworkQuiet(page);
+  await page.waitForTimeout(postCaptureDelayMs);
+}
+
+export function extractHandle(href: string, prefix: "/products/" | "/collections/"): string | undefined {
   try {
     const url = new URL(href);
 
@@ -172,12 +467,13 @@ async function buildPageSnapshot(
   isPasswordProtected: boolean;
   shopDomain?: string;
   screenshot: Uint8Array;
+  captureWarnings: string[];
 }> {
   const { chromium } = await import("playwright");
   let browser;
 
   try {
-    browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch(buildLaunchOptions());
   } catch (error) {
     throw new StorefrontInspectionError(
       "browser_unavailable",
@@ -187,17 +483,31 @@ async function buildPageSnapshot(
 
   try {
     const context = await browser.newContext({
-      viewport,
-      ...(userAgent ? { userAgent } : {})
+      ...buildContextOptions(viewport),
+      userAgent: resolveContextUserAgent(userAgent)
     });
     const page = await context.newPage();
-    const response = await page.goto(referenceUrl, { waitUntil: "domcontentloaded", timeout: 15_000 });
+    if (page.setViewportSize) {
+      await page.setViewportSize(viewport);
+    }
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    addCaptureHardeningCss(page);
+    await suppressTransientOverlays(page);
+
+    await page.setViewportSize(viewport);
+    const response = await page.goto(referenceUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
 
     try {
-      await page.waitForLoadState("networkidle", { timeout: 5_000 });
+      await page.waitForLoadState("networkidle", { timeout: 15_000 });
     } catch {
       // Some storefronts never reach network idle; best-effort capture is acceptable.
     }
+
+    await waitForCaptureReadiness(page, {
+      maxScrollSteps: 8,
+      postCaptureDelayMs: 800
+    });
 
     const html = await page.content();
     const pageData = await page.evaluate(() => {
@@ -352,7 +662,8 @@ async function buildPageSnapshot(
     const screenshot = await page.screenshot({
       type: "jpeg",
       quality: 85,
-      fullPage: true
+      fullPage: true,
+      animations: "disabled"
     });
 
     await context.close();
@@ -405,7 +716,8 @@ async function buildPageSnapshot(
       routeHints: buildRouteHints(allLinkTargets),
       isPasswordProtected: pageData.isPasswordProtected,
       ...(pageData.shopDomain ? { shopDomain: pageData.shopDomain } : {}),
-      screenshot
+      screenshot,
+      captureWarnings: detectCaptureWarnings(pageData.textContent, html, pageData.title)
     };
   } catch (error) {
     if (error instanceof StorefrontInspectionError) {
@@ -427,6 +739,7 @@ class PlaywrightStorefrontBrowserAdapter implements StorefrontBrowserAdapter {
     const mobile = await buildPageSnapshot(referenceUrl, { width: 393, height: 852 }, "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1");
     const referenceHost = new URL(desktop.resolvedUrl).hostname.replace(/^www\./, "");
     const evidence = detectEvidence(desktop.html, desktop.shopDomain);
+    const captureWarnings = uniqueStrings([...desktop.captureWarnings, ...mobile.captureWarnings]);
 
     return {
       sourceUrl: referenceUrl,
@@ -459,6 +772,7 @@ class PlaywrightStorefrontBrowserAdapter implements StorefrontBrowserAdapter {
           : {})
       },
       evidence,
+      captureWarnings,
       ...(desktop.httpStatus ? { httpStatus: desktop.httpStatus } : {}),
       isPasswordProtected: desktop.isPasswordProtected,
       ...(desktop.shopDomain ? { shopDomain: desktop.shopDomain } : {}),
@@ -521,6 +835,7 @@ export class StorefrontInspector {
           styleTokens: rawInspection.styleTokens,
           routeHints: rawInspection.routeHints,
           evidence: rawInspection.evidence,
+          captureWarnings: rawInspection.captureWarnings,
           ...(rawInspection.httpStatus ? { httpStatus: rawInspection.httpStatus } : {}),
           isPasswordProtected: rawInspection.isPasswordProtected,
           ...(rawInspection.shopDomain ? { shopDomain: rawInspection.shopDomain } : {})
@@ -548,6 +863,7 @@ export class StorefrontInspector {
       styleTokens: rawInspection.styleTokens,
       routeHints: rawInspection.routeHints,
       evidence: rawInspection.evidence,
+      captureWarnings: rawInspection.captureWarnings,
       ...(rawInspection.httpStatus ? { httpStatus: rawInspection.httpStatus } : {}),
       isPasswordProtected: rawInspection.isPasswordProtected,
       ...(rawInspection.shopDomain ? { shopDomain: rawInspection.shopDomain } : {})

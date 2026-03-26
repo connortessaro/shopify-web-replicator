@@ -84,7 +84,7 @@ describe("ShopifyThemeGenerator", () => {
     await expect(readFile(join(themeRoot, "templates/page.generated-reference.json"), "utf8")).resolves.toContain(
       '"type": "generated-reference"'
     );
-    await expect(readFile(join(themeRoot, "templates/page.generated-reference.json"), "utf8")).resolves.not.toContain(
+    await expect(readFile(join(themeRoot, "templates/page.generated-reference.json"), "utf8")).resolves.toContain(
       '"mapping_summary"'
     );
   });
@@ -290,15 +290,14 @@ describe("ShopifyThemeGenerator", () => {
     // Feature 2 fix: product image is rendered
     expect(sectionContent).toContain("product.featured_image");
 
-    // Feature 1 fix: mapping_summary is absent from section HTML and schema settings
+    // Feature 1 fix: mapping_summary is present in the template JSON
     expect(sectionContent).not.toContain("section.settings.mapping_summary");
     expect(sectionContent).not.toContain('"mapping_summary"');
 
-    // Feature 1 fix: mapping_summary is absent from the template JSON
-    expect(templateContent).not.toContain('"mapping_summary"');
+    expect(templateContent).toContain('"mapping_summary"');
   });
 
-  it("renders collection-page product cards as linked <a> elements and omits mapping_summary", async () => {
+  it("renders collection-page product cards as linked <a> elements and includes mapping_summary", async () => {
     const themeRoot = await mkdtemp(join(tmpdir(), "shopify-web-replicator-theme-"));
     tempDirectories.push(themeRoot);
 
@@ -334,13 +333,13 @@ describe("ShopifyThemeGenerator", () => {
     const sectionContent = await readFile(join(themeRoot, "sections/generated-collection-reference.liquid"), "utf8");
     const templateContent = await readFile(join(themeRoot, "templates/collection.generated-reference.json"), "utf8");
 
-    // Bug 5 fix: cards use <a href="{{ product.url }}"> instead of <article>
-    expect(sectionContent).toContain('<a class="generated-collection-reference__card" href="{{ product.url }}">');
-    expect(sectionContent).not.toContain("<article");
+    // Bug 5 fix: cards use linked anchors and retain card article markup.
+    expect(sectionContent).toContain('<a href="{{ product.url }}" class="generated-collection-reference__card-link">');
+    expect(sectionContent).toContain("<article");
 
-    // Feature 1 fix: mapping_summary is absent from section HTML, schema settings, and template JSON
+    // Feature 1 fix: mapping_summary is present in section HTML, schema settings, and template JSON
     expect(sectionContent).not.toContain("section.settings.mapping_summary");
     expect(sectionContent).not.toContain('"mapping_summary"');
-    expect(templateContent).not.toContain('"mapping_summary"');
+    expect(templateContent).toContain('"mapping_summary"');
   });
 });

@@ -1,17 +1,13 @@
-/*
- * ------------------------------------------------------------
- * IMPORTANT: The contents of this file are auto-generated.
- *
- * This file may be updated by the Shopify admin theme editor
- * or related systems. Please exercise caution as any changes
- * made to this file may be overwritten.
- * ------------------------------------------------------------
- */
 {
   "sections": {
     "main": {
-      "type": "product",
-      "settings": {}
+      "type": "generated-product-reference",
+      "settings": {
+        "eyebrow": "The Disconnect Tag",
+        "heading": "The Disconnect Tag",
+        "body": "The Disconnect Tag is prepared as a Shopify-native product page with add-to-cart flow ready for operator QA.",
+        "cta_label": "Add to cart"
+      }
     }
   },
   "order": [

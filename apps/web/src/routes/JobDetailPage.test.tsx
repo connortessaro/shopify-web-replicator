@@ -18,6 +18,7 @@ function createJob(overrides: Partial<ReplicationJob> = {}): ReplicationJob {
     intake: {
       referenceUrl: "https://example.com/collection",
       destinationStore: "local-dev-store",
+      pageType: "landing_page",
       notes: "Collection page rebuild"
     },
     stages: [
@@ -416,12 +417,12 @@ describe("JobDetailPage", () => {
           summary: "Waiting for review."
         }
       ],
-      generation: undefined,
       validation: {
         status: "pending",
         summary: "Theme validation has not run yet."
       }
     });
+    delete inFlightJob.generation;
     const finishedJob = createJob();
     const loadJob = vi.fn().mockResolvedValueOnce(inFlightJob).mockResolvedValueOnce(finishedJob);
 
@@ -460,12 +461,12 @@ describe("JobDetailPage", () => {
         stage: "mapping",
         message: "Mapping failed"
       },
-      mapping: undefined,
       validation: {
         status: "pending",
         summary: "Theme validation has not run yet."
       }
     });
+    delete job.mapping;
     const loadJob = vi.fn().mockResolvedValue(job);
 
     render(

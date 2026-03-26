@@ -9,6 +9,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./dist/index.js"
+    },
+    "./logger": {
+      "types": "./src/logger.ts",
+      "default": "./dist/logger.js"
     }
   },
   "scripts": {

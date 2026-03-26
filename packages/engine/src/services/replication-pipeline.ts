@@ -9,7 +9,6 @@ import {
 } from "@shopify-web-replicator/shared";
 
 import type { JobRepository } from "../repository/in-memory-job-repository.js";
-<<<<<<< HEAD
 import type {
   AdminReplicationService,
   Analyzer,
@@ -26,11 +25,7 @@ import type {
   StoreSetupGenerator,
   ThemeValidator
 } from "./types.js";
-
 import type { AppRuntimeConfig, DestinationStoreProfile } from "@shopify-web-replicator/shared";
-=======
-import type { Analyzer, CommerceGenerator, Generator, IntegrationGenerator, Mapper, StoreSetupGenerator, ThemeValidator } from "./types.js";
->>>>>>> 0ff837ae2df3782ab4b72a9b6d93d92b7f7d8110
 
 type ReplicationPipelineOptions = {
   repository: JobRepository;
@@ -272,8 +267,6 @@ export class ReplicationPipeline {
       const validation = await this.#themeValidator.validate();
       job.validation = validation;
       const validationTimestamp = validation.checkedAt ?? job.updatedAt;
-
-<<<<<<< HEAD
       if (validation.status === "failed") {
         failStage(job, "validation", validationTimestamp, validation.summary);
       } else {
@@ -301,12 +294,6 @@ export class ReplicationPipeline {
 
       // --- integration_check ---
       startStage(job, "integration_check", job.updatedAt, "Preparing deterministic integration report.");
-=======
-      const validationTimestamp = validation.checkedAt ?? commerce.plannedAt;
-      completeStage(job, "validation", validationTimestamp, validation.summary);
-      startStage(job, "integration_check", validationTimestamp, "Preparing deterministic integration report.");
-      job.updatedAt = validationTimestamp;
->>>>>>> 0ff837ae2df3782ab4b72a9b6d93d92b7f7d8110
       await this.#repository.save(job);
 
       const { artifact: integrationArtifact, integration } = await this.#integrationGenerator.generate({
@@ -319,18 +306,8 @@ export class ReplicationPipeline {
       );
       job.updatedAt = integration.checkedAt;
 
-<<<<<<< HEAD
       if (validation.status === "failed") throw new Error(validation.summary);
       if (integration.status === "failed") throw new Error(integration.summary);
-=======
-      if (validation.status === "failed") {
-        throw new Error(validation.summary);
-      }
-
-      if (integration.status === "failed") {
-        throw new Error(integration.summary);
-      }
->>>>>>> 0ff837ae2df3782ab4b72a9b6d93d92b7f7d8110
 
       completeStage(job, "integration_check", integration.checkedAt,
         "Deterministic integration report is ready for operator review.");

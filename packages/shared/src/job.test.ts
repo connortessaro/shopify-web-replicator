@@ -3,6 +3,17 @@ import { describe, expect, it } from "vitest";
 import { createReplicationJob, pipelineStages, referenceIntakeSchema } from "./job";
 
 describe("createReplicationJob", () => {
+  it("normalizes trimmed input for destination store and notes", () => {
+    const job = createReplicationJob({
+      referenceUrl: "https://example.com/products/trail-pack",
+      destinationStore: "  local-dev-store  ",
+      notes: "  trim this input  "
+    });
+
+    expect(job.intake.destinationStore).toBe("local-dev-store");
+    expect(job.intake.notes).toBe("trim this input");
+  });
+
   it("creates a job ready for route discovery, capture, replication, parity audit, and review", () => {
     const job = createReplicationJob({
       referenceUrl: "https://example.com",
@@ -271,15 +282,39 @@ describe("URL-based page-type inference", () => {
     ["https://example.com/", "homepage"],
     ["https://example.com/offer", "landing_page"]
   ] as const)("%s → %s", (url, expectedPageType) => {
-    const job = createReplicationJob({ referenceUrl: url });
+    const job = createReplicationJob({
+      referenceUrl: url,
+      destinationStore: "local-dev-store"
+    });
     expect(job.intake.pageType).toBe(expectedPageType);
   });
 });
 
 describe("referenceIntakeSchema", () => {
+  it("rejects reference URLs with leading or trailing whitespace", () => {
+    const result = referenceIntakeSchema.safeParse({
+      referenceUrl: " https://example.com ",
+      destinationStore: "local-dev-store"
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.referenceUrl).toBe("https://example.com");
+    }
+  });
+
+  it("rejects blank notes after trimming", () => {
+    const result = referenceIntakeSchema.safeParse({
+      referenceUrl: "https://example.com",
+      destinationStore: "local-dev-store",
+      notes: "   "
+    });
+    expect(result.success).toBe(false);
+  });
+
   it("rejects notes longer than 500 characters", () => {
     const result = referenceIntakeSchema.safeParse({
       referenceUrl: "https://example.com",
+      destinationStore: "local-dev-store",
       notes: "a".repeat(501)
     });
     expect(result.success).toBe(false);
@@ -288,6 +323,7 @@ describe("referenceIntakeSchema", () => {
   it("accepts notes at exactly 500 characters", () => {
     const result = referenceIntakeSchema.safeParse({
       referenceUrl: "https://example.com",
+      destinationStore: "local-dev-store",
       notes: "a".repeat(500)
     });
     expect(result.success).toBe(true);

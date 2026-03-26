@@ -1,6 +1,8 @@
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+import type { ReplicationJob } from "@shopify-web-replicator/shared";
 
 import { HandoffPage } from "./HandoffPage";
 
@@ -10,13 +12,14 @@ function hasTextContent(pattern: RegExp) {
 
 describe("HandoffPage", () => {
   it("shows the selected job handoff with runtime config and validation output", async () => {
-    const loadJob = async () => ({
+    const loadJob = async (): Promise<ReplicationJob> => ({
       id: "job_123",
       status: "needs_review",
       currentStage: "review",
       intake: {
         referenceUrl: "https://example.com",
-        destinationStore: "local-dev-store"
+        destinationStore: "local-dev-store",
+        pageType: "landing_page"
       },
       stages: [],
       artifacts: [
@@ -203,5 +206,103 @@ describe("HandoffPage", () => {
     expect(screen.getByText(/\/checkout/i)).toBeInTheDocument();
     expect(screen.getByText(/all deterministic integration checks passed for example storefront/i)).toBeInTheDocument();
     expect(screen.getAllByText(/config\/generated-integration-report\.json/i).length).toBeGreaterThan(0);
+  });
+
+  it("shows an error if the route does not include a job id", async () => {
+    const loadJob = vi.fn<(jobId: string) => Promise<ReplicationJob>>().mockResolvedValue({
+      id: "job_123",
+      status: "needs_review",
+      currentStage: "review",
+      intake: {
+        referenceUrl: "https://example.com",
+        destinationStore: "local-dev-store",
+        pageType: "landing_page"
+      },
+      stages: [],
+      artifacts: [],
+      validation: {
+        status: "passed",
+        summary: "Theme check passed."
+      },
+      createdAt: "2026-03-20T12:00:00.000Z",
+      updatedAt: "2026-03-20T12:01:00.000Z"
+    });
+    const loadRuntime = vi.fn().mockResolvedValue({
+      themeWorkspacePath: "/tmp/theme-workspace",
+      captureRootPath: "/tmp/captures",
+      previewCommand: "shopify theme dev",
+      destinationStores: []
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/jobs/handoff"]}>
+        <Routes>
+          <Route
+            path="/jobs/:jobId?/handoff"
+            element={<HandoffPage loadJob={loadJob} loadRuntime={loadRuntime} />}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText(/missing job id/i)).toBeInTheDocument();
+    expect(loadJob).not.toHaveBeenCalled();
+  });
+
+  it("shows a handoff error when runtime config cannot be loaded", async () => {
+    const loadJob = vi.fn<(jobId: string) => Promise<ReplicationJob>>().mockResolvedValue({
+      id: "job_123",
+      status: "needs_review",
+      currentStage: "review",
+      intake: {
+        referenceUrl: "https://example.com",
+        destinationStore: "local-dev-store",
+        pageType: "landing_page"
+      },
+      stages: [],
+      artifacts: [],
+      validation: {
+        status: "passed",
+        summary: "Theme check passed."
+      },
+      createdAt: "2026-03-20T12:00:00.000Z",
+      updatedAt: "2026-03-20T12:01:00.000Z",
+      capture: {
+        sourceUrl: "https://example.com",
+        resolvedUrl: "https://example.com/",
+        referenceHost: "example.com",
+        title: "Example Storefront",
+        description: "Captured storefront.",
+        capturedAt: "2026-03-20T12:01:00.000Z",
+        captureBundlePath: "/tmp/captures/job_123/capture-bundle.json",
+        desktopScreenshotPath: "/tmp/captures/job_123/desktop.jpg",
+        mobileScreenshotPath: "/tmp/captures/job_123/mobile.jpg",
+        textContent: "Example Storefront",
+        headingOutline: ["Example Storefront"],
+        navigationLinks: [],
+        primaryCtas: [],
+        imageAssets: [],
+        styleTokens: {
+          dominantColors: ["rgb(255, 255, 255)", "rgb(17, 24, 39)"],
+          fontFamilies: ["Inter", "Georgia"]
+        },
+        routeHints: {
+          productHandles: [],
+          collectionHandles: []
+        }
+      }
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/jobs/job_123/handoff"]}>
+        <Routes>
+          <Route path="/jobs/:jobId/handoff" element={<HandoffPage loadJob={loadJob} loadRuntime={vi.fn().mockRejectedValue(new Error("runtime unavailable"))} />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/unable to load the handoff view\./i)).toBeInTheDocument();
+    });
   });
 });

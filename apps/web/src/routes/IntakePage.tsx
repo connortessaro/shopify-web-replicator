@@ -5,6 +5,7 @@ import {
   pageTypeLabels,
   pageTypes,
   type DestinationStoreProfile,
+  type PageType,
   type ReferenceIntake,
   type ReplicationJobSummary
 } from "@shopify-web-replicator/shared";
@@ -28,7 +29,7 @@ export function IntakePage({
 }: IntakePageProps) {
   const navigate = useNavigate();
   const [referenceUrl, setReferenceUrl] = useState("");
-  const [pageType, setPageType] = useState("landing_page");
+  const [pageType, setPageType] = useState<PageType>("landing_page");
   const [destinationStore, setDestinationStore] = useState("");
   const [notes, setNotes] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -120,10 +121,10 @@ export function IntakePage({
     <div className="stack">
       <section className="panel">
         <div className="eyebrow">Operator Intake</div>
-        <h1>Capture a reference storefront and start the replication pipeline.</h1>
+        <h1>Start a storefront replication run</h1>
         <p className="lede">
-          This dashboard creates an internal replication job. The generated Shopify theme files
-          land in the local theme workspace for review before handoff.
+          This dashboard creates a local replication job and writes generated Shopify theme files
+          to the workspace for operator review before handoff.
         </p>
 
         <form className="stack" onSubmit={handleSubmit}>
@@ -163,7 +164,7 @@ export function IntakePage({
               aria-label="Page Type"
               name="pageType"
               value={pageType}
-              onChange={(event) => setPageType(event.target.value)}
+              onChange={(event) => setPageType(event.target.value as PageType)}
             >
               {pageTypes.map((pageTypeOption) => (
                 <option key={pageTypeOption} value={pageTypeOption}>
@@ -179,7 +180,7 @@ export function IntakePage({
               aria-label="Notes"
               name="notes"
               rows={5}
-              placeholder="What should the replicator prioritize?"
+              placeholder="Optional priorities: layout style, merchandising focus, CTA behavior..."
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
             />

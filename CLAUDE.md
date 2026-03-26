@@ -46,7 +46,7 @@ This is a pnpm monorepo. Build order is strict: `shared` must be built before `e
 
 - **`packages/engine`** — The deterministic replication engine. Contains `ReplicationOrchestrator` (the public API), `ReplicationPipeline` (step-by-step execution), and concrete service implementations (`DeterministicPageAnalyzer`, `DeterministicThemeMapper`, `ShopifyThemeGenerator`, `ShopifyStoreSetupGenerator`, `ShopifyCommerceWiringGenerator`, `ShopifyThemeValidator`, `ShopifyIntegrationReportGenerator`). All services depend on interfaces defined in `src/services/types.ts`, enabling injection of test doubles.
 
-- **`apps/mcp`** — The primary product surface. A stdio MCP server exposing three tools: `replicate_storefront`, `get_replication_job`, `list_replication_jobs`. Entry point is `apps/mcp/src/index.ts`. The server logic is in `server.ts`; runtime preflight checks (Node sqlite support, Shopify CLI presence, writable paths) live in `runtime-preflight.ts`.
+- **`apps/mcp`** — The primary product surface. A stdio MCP server exposing three tools: `replicate_site_to_theme`, `get_replication_job`, `list_replication_jobs`. Entry point is `apps/mcp/src/index.ts`. The server logic is in `server.ts`; runtime preflight checks (Node sqlite support, Shopify CLI presence, writable paths) live in `runtime-preflight.ts`.
 
 - **`apps/api`** — Optional companion HTTP API (Hono on `@hono/node-server`). Binds to `127.0.0.1:8787` by default. Routes: `POST /api/jobs`, `GET /api/jobs/:jobId`, `GET /api/jobs`, `GET /api/runtime`. Note: `apps/api/src/` contains its own copies of the engine services (not imported from `packages/engine`) — this is intentional duplication for the standalone API surface.
 
