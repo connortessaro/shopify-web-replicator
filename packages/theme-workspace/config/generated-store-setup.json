@@ -1,5 +1,83 @@
 {
   "generatedBy": "Shopify Web Replicator",
-  "status": "pending",
-  "summary": "Stable placeholder for deterministic store setup plan output."
+  "sourceUrl": "https://kip.life/pages/faq",
+  "pageType": "landing_page",
+  "title": "Faq",
+  "mappingSummary": "Mapped Faq into the stable generated landing template.",
+  "storeSetup": {
+    "plannedAt": "2026-03-25T02:07:06.554Z",
+    "configPath": "config/generated-store-setup.json",
+    "summary": "Prepared deterministic store setup plan for Faq covering products, collections, menus, and structured content for the landing page.",
+    "products": [
+      {
+        "handle": "faq",
+        "title": "Faq",
+        "merchandisingRole": "Primary offer for the generated storefront."
+      }
+    ],
+    "collections": [
+      {
+        "handle": "faq-featured",
+        "title": "Faq Featured",
+        "rule": "Manual collection for the generated storefront review flow.",
+        "featuredProductHandles": [
+          "faq"
+        ]
+      }
+    ],
+    "menus": [
+      {
+        "handle": "main-menu",
+        "title": "Main menu",
+        "items": [
+          {
+            "title": "Home",
+            "target": "/"
+          },
+          {
+            "title": "Shop",
+            "target": "/collections/faq-featured"
+          },
+          {
+            "title": "Featured",
+            "target": "/products/faq"
+          }
+        ]
+      },
+      {
+        "handle": "footer-menu",
+        "title": "Footer menu",
+        "items": [
+          {
+            "title": "About",
+            "target": "/pages/about"
+          },
+          {
+            "title": "Contact",
+            "target": "/pages/contact"
+          }
+        ]
+      }
+    ],
+    "contentModels": [
+      {
+        "name": "feature_callout",
+        "type": "metaobject",
+        "fields": [
+          "eyebrow",
+          "heading",
+          "body"
+        ]
+      },
+      {
+        "name": "landing_story",
+        "type": "metafield_definition",
+        "fields": [
+          "headline",
+          "body",
+          "media"
+        ]
+      }
+    ]
+  }
 }

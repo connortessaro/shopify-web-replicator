@@ -3,11 +3,17 @@ import { z } from "zod";
 
 import type {
   DestinationStoreProfile,
+  HydrogenReplicationIntake,
+  HydrogenReplicationJobSummary,
   ReferenceIntake,
   ReplicationJob,
   ReplicationJobSummary
 } from "@shopify-web-replicator/shared";
-import { pageTypes, referenceIntakeSchema } from "@shopify-web-replicator/shared";
+import {
+  hydrogenReplicationIntakeSchema,
+  pageTypes,
+  referenceIntakeSchema
+} from "@shopify-web-replicator/shared";
 
 import type { ReplicationHandoff, ReplicationOrchestrator } from "@shopify-web-replicator/engine";
 
@@ -61,13 +67,20 @@ type JobLookupStructuredContent = ReplicationJob | { error: NotFoundFailure };
 
 export type ReplicatorMcpAdapter = Pick<
   ReplicationOrchestrator,
-  "replicateStorefront" | "getJob" | "listRecentJobs" | "listDestinationStores"
+  | "replicateStorefront"
+  | "enqueueHydrogenReplication"
+  | "getJob"
+  | "listRecentJobs"
+  | "listDestinationStores"
 >;
 
 export type ReplicatorMcpHandlers = {
   replicateStorefront: (
     input: ReferenceIntake
   ) => Promise<ToolResult<ReplicationToolStructuredContent>>;
+  enqueueHydrogenReplication: (
+    input: HydrogenReplicationIntake
+  ) => Promise<ToolResult<HydrogenReplicationJobSummary>>;
   getReplicationJob: (
     input: { jobId: string }
   ) => Promise<ToolResult<JobLookupStructuredContent>>;
@@ -145,6 +158,16 @@ export function createReplicatorMcpHandlers(orchestrator: ReplicatorMcpAdapter):
       );
     },
 
+    async enqueueHydrogenReplication(input: HydrogenReplicationIntake) {
+      const intake = hydrogenReplicationIntakeSchema.parse(input);
+      const created = await orchestrator.enqueueHydrogenReplication(intake);
+
+      return createTextResult(
+        `Started Hydrogen replication job ${created.jobId} for ${created.referenceUrl}.`,
+        created
+      );
+    },
+
     async getReplicationJob({ jobId }: { jobId: string }) {
       const job = await orchestrator.getJob(jobId);
 
@@ -192,7 +215,7 @@ export function createReplicatorMcpServer(orchestrator: ReplicatorMcpAdapter): M
   const handlers = createReplicatorMcpHandlers(orchestrator);
 
   server.registerTool(
-    "replicate_storefront",
+    "replicate_site_to_theme",
     {
       title: "Replicate Storefront",
       description:
@@ -211,6 +234,30 @@ export function createReplicatorMcpServer(orchestrator: ReplicatorMcpAdapter): M
         content: result.content,
         structuredContent: toSerializableRecord(result.structuredContent),
         ...(result.isError ? { isError: true as const } : {})
+      };
+    }
+  );
+
+  server.registerTool(
+    "replicate_site_to_hydrogen",
+    {
+      title: "Replicate Site To Hydrogen",
+      description:
+        "Create an async Hydrogen replication job from a public ecommerce URL using Playwright discovery plus a Figma handoff stage.",
+      inputSchema: {
+        referenceUrl: z.string().url(),
+        targetId: z.string().trim().min(1),
+        targetLabel: z.string().trim().min(1).optional(),
+        notes: z.string().trim().min(1).optional(),
+        seedRoutes: z.array(z.string().trim().min(1)).max(25).optional()
+      }
+    },
+    async (input) => {
+      const result = await handlers.enqueueHydrogenReplication(input);
+
+      return {
+        content: result.content,
+        structuredContent: toSerializableRecord(result.structuredContent)
       };
     }
   );

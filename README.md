@@ -1,12 +1,25 @@
 # Shopify Web Replicator
 
-Shopify Web Replicator is a standalone MCP server for agents like Codex and Claude. An agent calls a one-shot replication tool, the local engine qualifies the source with a browser-backed Shopify check, captures rendered reference signals plus screenshots, runs a deterministic Shopify replication pipeline to a terminal state, and returns a typed handoff payload plus stable theme artifacts written into a local Shopify theme workspace.
+Shopify Web Replicator is a local-first MCP product for turning a public storefront into reviewable output.
 
-The repo still includes a local API and a web review surface, but they are companion interfaces. The primary product surface is the MCP server in `apps/mcp`.
+It currently supports two tracks:
+
+- `replicate_site_to_theme`: the stable default path for deterministic Shopify theme generation and operator review
+- `replicate_site_to_hydrogen`: an advanced / beta path for async Hydrogen workspace generation using Playwright discovery plus a live Figma bridge
+
+The repo includes companion API and web UI surfaces that share the same engine behavior, so teams can move between agent-driven and human review workflows without switching tools. MCP clients can connect over local `stdio` or streamable HTTP, depending on the client.
+
+## Team first-run
+
+1. `pnpm install`
+2. `pnpm build`
+3. `cp config/destination-stores.example.json config/destination-stores.json`
+4. `pnpm dev` for watch mode
+5. Open MCP or UI flow per `docs/mcp-setup.md` / `docs/operator-runbook.md`
 
 ## Workspace layout
 
-- `apps/mcp`: stdio MCP server for agent-driven replication
+- `apps/mcp`: MCP server with both stdio and streamable HTTP entrypoints
 - `apps/api`: companion HTTP API backed by the same replication engine
 - `apps/web`: companion operator UI for intake, job review, and handoff
 - `packages/engine`: shared deterministic replication engine used by MCP and API
@@ -27,19 +40,25 @@ The repo still includes a local API and a web review surface, but they are compa
   Default: `.data/replicator.db`
 - `THEME_WORKSPACE_PATH`
   Default: `packages/theme-workspace`
+- `REPLICATOR_HYDROGEN_ROOT`
+  Default: `generated-sites`
 - `REPLICATOR_CAPTURE_ROOT`
   Default: `.data/captures`
 - `REPLICATOR_DESTINATION_STORES_PATH`
   Default: `config/destination-stores.json`
+- `FIGMA_MCP_URL`
+  Default: `http://127.0.0.1:3845/mcp`
 
 These variables affect the MCP server, the API, and the companion web handoff flow because they all use the same engine package.
 
-Destination stores are loaded from a local JSON file. Use [`config/destination-stores.example.json`](/Users/tessaro/shopify-web-replicator/.worktrees/reference-capture/config/destination-stores.example.json) as the template for your local `config/destination-stores.json`.
+Destination stores are loaded from a local JSON file. Use [`config/destination-stores.example.json`](config/destination-stores.example.json) as the template for your local `config/destination-stores.json`.
 
 ## MCP tool surface
 
-- `replicate_storefront`
+- `replicate_site_to_theme`
   Runs source qualification, reference capture, and the deterministic pipeline end to end in one tool call and returns the terminal handoff payload.
+- `replicate_site_to_hydrogen`
+  Creates an async Hydrogen replication job that runs Playwright discovery, `figma_import`, `figma_design_context`, backend inference, and Hydrogen workspace generation.
 - `get_replication_job`
   Loads a persisted job by id.
 - `list_replication_jobs`
@@ -56,7 +75,7 @@ The one-shot tool returns:
 - runtime handoff info: theme workspace path, capture root path, and preview command
 - deterministic next actions for operator review
 
-## Current flow
+## Stable theme flow
 
 1. An agent or companion UI selects a configured destination store and submits a reference URL, optional page type, and optional notes.
 2. The engine persists a durable SQLite job record.
@@ -69,6 +88,22 @@ The one-shot tool returns:
 9. Final validation runs against the fully generated workspace.
 10. Integration checks write `config/generated-integration-report.json` and verify generated files on disk, commerce entrypoints, section snippet rendering, checkout handoff markup, and final validation status.
 11. The final result is either `needs_review` or `failed`.
+
+## Advanced Hydrogen flow
+
+1. An agent calls `replicate_site_to_hydrogen` with `referenceUrl`, `targetId`, and optional `targetLabel`, `notes`, and `seedRoutes`.
+2. The engine creates a durable Hydrogen job and runs these stages asynchronously:
+   - `source_qualification`
+   - `playwright_discovery`
+   - `figma_import`
+   - `figma_design_context`
+   - `frontend_spec`
+   - `backend_inference`
+   - `hydrogen_generation`
+   - `workspace_validation`
+   - `review`
+3. The generated Hydrogen workspace is written under `generated-sites/<targetId>` by default.
+4. The workflow depends on a reachable Figma MCP bridge. If the bridge is unavailable, the job fails at `figma_import` by design.
 
 ## Capture artifacts
 
@@ -96,6 +131,7 @@ The one-shot tool returns:
 ## Companion HTTP API
 
 - `POST /api/jobs`
+- `POST /api/hydrogen/jobs`
 - `GET /api/jobs/:jobId`
 - `GET /api/jobs?limit=<n>`
 - `GET /api/runtime`
@@ -105,17 +141,19 @@ The API uses the same `packages/engine` orchestrator as the MCP server.
 
 ## Local MCP setup
 
-See `docs/mcp-setup.md` for stdio launch details, example client configuration, and environment overrides.
+See `docs/mcp-setup.md` for stdio launch details, streamable HTTP setup, Figma bridge configuration, and environment overrides. `docs/setup-guide.md` is the broader client-facing setup guide.
 
 ## Companion operator flow
 
-The web app remains useful for manual review:
+The web app remains useful for manual review of the stable theme workflow:
 
 1. Start the repo with `pnpm dev`.
 2. Submit a job in the web UI or create one through MCP.
 3. Open the job detail or handoff view.
 4. Review source qualification, capture artifact paths, extracted route/style signals, generated artifacts, validation output, integration output, and next steps.
 5. Run `shopify theme dev` in the configured workspace and verify layout, content, commerce wiring, and cart-to-checkout handoff.
+
+Hydrogen is currently more MCP-first than web-UI-first. Use `get_replication_job` or the API to inspect those jobs and review the generated workspace under `generated-sites/<targetId>`.
 
 ## Current limits
 
@@ -124,3 +162,4 @@ The web app remains useful for manual review:
 - Store setup output is still a generated plan, not Shopify Admin automation.
 - Commerce wiring is deterministic and native-route-based, not live checkout automation.
 - Multi-page replication and checkout customization are out of scope for this slice.
+- The Hydrogen + Figma path is an advanced / beta workflow. It depends on a live Figma MCP bridge and is not yet documented as a first-class web-UI review flow.

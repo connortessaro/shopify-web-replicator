@@ -3,13 +3,14 @@
     "main": {
       "type": "generated-product-reference",
       "settings": {
-        "eyebrow": "Generated product",
-        "heading": "Product replication workspace",
-        "body": "This alternate product template points at the generated product reference section.",
-        "mapping_summary": "The deterministic product pipeline will replace this placeholder.",
+        "eyebrow": "The Disconnect Tag",
+        "heading": "The Disconnect Tag",
+        "body": "The Disconnect Tag is prepared as a Shopify-native product page with add-to-cart flow ready for operator QA.",
         "cta_label": "Add to cart"
       }
     }
   },
-  "order": ["main"]
+  "order": [
+    "main"
+  ]
 }

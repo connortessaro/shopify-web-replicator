@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { StorefrontInspector } from "./storefront-inspector";
+import { StorefrontInspector, buildContextOptions, detectCaptureWarnings, extractHandle } from "./storefront-inspector";
 
 describe("StorefrontInspector", () => {
   const tempDirectories: string[] = [];
@@ -46,6 +46,7 @@ describe("StorefrontInspector", () => {
             checkoutPath: "/checkout"
           },
           evidence: ["window.Shopify"],
+          captureWarnings: [],
           httpStatus: 200,
           isPasswordProtected: false,
           shopDomain: "example-store.myshopify.com",
@@ -69,5 +70,43 @@ describe("StorefrontInspector", () => {
     await expect(readFile(inspection.mobileScreenshotPath)).resolves.toEqual(Buffer.from([4, 5, 6]));
     await expect(readFile(inspection.captureBundlePath, "utf8")).resolves.toContain("\"window.Shopify\"");
     await expect(readFile(inspection.captureBundlePath, "utf8")).resolves.toContain("\"html\":");
+  });
+
+  it("flags bot-protection content in capture warnings", () => {
+    const warningKeys = detectCaptureWarnings("Need to pass challenge", "<html>Just a moment</html>", "Blocked");
+    expect(warningKeys).toContain("bot_protection_or_block_page_detected");
+  });
+
+  it("adds sparse text warnings for empty captures", () => {
+    const warningKeys = detectCaptureWarnings("tiny", "<html></html>", "Home");
+    expect(warningKeys).toContain("sparse_text_signal");
+  });
+
+  it("normalizes desktop and mobile context defaults", () => {
+    expect(buildContextOptions({ width: 1440, height: 1200 })).toMatchObject({
+      hasTouch: false,
+      isMobile: false,
+      deviceScaleFactor: 1,
+      colorScheme: "light",
+      locale: "en-US",
+      timezoneId: "America/New_York",
+      viewport: { width: 1440, height: 1200 }
+    });
+
+    expect(buildContextOptions({ width: 393, height: 852 })).toMatchObject({
+      hasTouch: true,
+      isMobile: true,
+      deviceScaleFactor: 3,
+      colorScheme: "light",
+      locale: "en-US",
+      timezoneId: "America/New_York",
+      viewport: { width: 393, height: 852 }
+    });
+  });
+
+  it("extracts Shopify handles from route URLs", () => {
+    expect(extractHandle("https://example.com/products/blue-shirt?size=xl", "/products/")).toBe("blue-shirt");
+    expect(extractHandle("https://example.com/collections/sale/special", "/collections/")).toBe("sale");
+    expect(extractHandle("https://example.com/cart", "/products/")).toBeUndefined();
   });
 });

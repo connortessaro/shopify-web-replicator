@@ -2,21 +2,24 @@
 
 ## Intent
 
-This repo is built around a standalone MCP server that agents can call directly. The MCP server, companion API, and companion web app all share the same deterministic replication engine so the product can improve behind one domain model and one pipeline.
+This repo is built around a standalone MCP server that agents can call directly. The MCP server, companion API, and companion web app all share the same engine so the product can improve behind one domain model while supporting two replication tracks:
+
+- a stable theme-generation pipeline
+- an advanced / beta Hydrogen-generation pipeline with a live Figma bridge
 
 ## Boundaries
 
-- `apps/mcp` owns the primary agent-facing stdio server and MCP tool registration.
+- `apps/mcp` owns the agent-facing MCP server, MCP tool registration, and both stdio and streamable HTTP entrypoints.
 - `packages/engine` owns runtime config, destination store discovery, SQLite persistence, browser-backed source qualification, rendered reference capture, orchestration, analysis, mapping, generation, store setup planning, commerce wiring, validation, and integration reporting.
 - `apps/api` owns the companion HTTP surface and delegates job creation and execution to the engine.
 - `apps/web` owns the companion human review surface and consumes the API.
 - `packages/shared` owns the contract shared across MCP, API, web, and engine.
 - `packages/theme-workspace` owns the Shopify-native output that gets previewed with Shopify CLI.
 
-## Primary MCP flow
+## Theme MCP flow
 
-1. An MCP client spawns `apps/mcp` over stdio.
-2. The client optionally calls `list_destination_stores`, then calls `replicate_storefront` with `referenceUrl`, `destinationStore`, optional `pageType`, and optional `notes`.
+1. An MCP client connects to `apps/mcp` over stdio or streamable HTTP.
+2. The client optionally calls `list_destination_stores`, then calls `replicate_site_to_theme` with `referenceUrl`, `destinationStore`, optional `pageType`, and optional `notes`.
 3. `apps/mcp` delegates to `packages/engine`.
 4. The engine creates a durable SQLite job and runs the deterministic pipeline synchronously for the tool call.
 5. `source_qualification` uses Playwright-backed inspection to verify that the source is a public Shopify storefront, detect password protection, and capture the resolved URL and HTTP status before more work is done.
@@ -31,11 +34,31 @@ This repo is built around a standalone MCP server that agents can call directly.
 14. `review` becomes the terminal human handoff stage when the run succeeds; failures remain structured job results instead of transport failures.
 15. The tool result returns the full job snapshot, destination store metadata, artifact metadata, runtime handoff info, and deterministic next actions.
 
+## Hydrogen MCP flow
+
+1. An MCP client connects to `apps/mcp` over stdio or streamable HTTP and calls `replicate_site_to_hydrogen`.
+2. `apps/mcp` delegates to `packages/engine`.
+3. The engine creates a durable Hydrogen job and runs the pipeline asynchronously.
+4. The Hydrogen pipeline stages are:
+   - `source_qualification`
+   - `playwright_discovery`
+   - `figma_import`
+   - `figma_design_context`
+   - `frontend_spec`
+   - `backend_inference`
+   - `hydrogen_generation`
+   - `workspace_validation`
+   - `review`
+5. `figma_import` and `figma_design_context` use a live Figma MCP bridge, typically `http://127.0.0.1:3845/mcp`.
+6. The generated Hydrogen workspace is written under `generated-sites/<targetId>` by default.
+7. The job is reopened through `get_replication_job`, `list_replication_jobs`, or the companion API rather than a single long-lived tool response.
+
 ## Companion surfaces
 
 ### HTTP API
 
 - `POST /api/jobs` creates a durable job through the shared engine contract.
+- `POST /api/hydrogen/jobs` creates a durable Hydrogen job summary through the shared engine contract.
 - `GET /api/jobs/:jobId` returns the full persisted job payload.
 - `GET /api/jobs?limit=<n>` returns recent job summaries.
 - `GET /api/runtime` returns the effective theme workspace path, capture root path, preview command, and configured destination stores.
@@ -52,16 +75,27 @@ This repo is built around a standalone MCP server that agents can call directly.
 
 - Job database path: `.data/replicator.db`
 - Theme workspace path: `packages/theme-workspace`
+- Hydrogen workspace root: `generated-sites`
 - Capture root path: `.data/captures`
 - Preview command: `shopify theme dev`
 - Destination store config path: `config/destination-stores.json`
+- Figma MCP endpoint: `http://127.0.0.1:3845/mcp`
 
 Overrides:
 
 - `REPLICATOR_DB_PATH`
 - `THEME_WORKSPACE_PATH`
+- `REPLICATOR_HYDROGEN_ROOT`
 - `REPLICATOR_CAPTURE_ROOT`
 - `REPLICATOR_DESTINATION_STORES_PATH`
+- `FIGMA_MCP_URL`
+- `FIGMA_MCP_AUTH_HEADER_NAME`
+- `FIGMA_MCP_AUTH_HEADER_VALUE`
+- `FIGMA_MCP_PLAN_KEY`
+- `FIGMA_MCP_OUTPUT_MODE`
+- `MCP_HTTP_HOST`
+- `MCP_HTTP_PORT`
+- `MCP_HTTP_PATH`
 
 The destination store config is a local JSON array of objects shaped like:
 
@@ -102,3 +136,4 @@ The destination store config is a local JSON array of objects shaped like:
 - Source qualification and capture use a local Playwright browser session and currently support public Shopify storefront detection only.
 - The capture bundle is persisted on disk under the configured capture root instead of inside SQLite blobs.
 - The captured snapshot now includes screenshots, style tokens, and route hints, but it is still scoped to deterministic single-route analysis rather than full multi-page parity.
+- The operator web UI remains strongest on the theme workflow. Hydrogen review is currently better supported through MCP/API job inspection and the generated workspace on disk.

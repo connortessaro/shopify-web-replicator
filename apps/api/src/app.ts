@@ -4,17 +4,25 @@ import { ZodError } from "zod";
 
 import type {
   AppRuntimeConfig,
+  HydrogenReplicationIntake,
+  HydrogenReplicationJobSummary,
   ReferenceIntake,
   ReplicationJobSummary
 } from "@shopify-web-replicator/shared";
-import { createReplicationJob, referenceIntakeSchema } from "@shopify-web-replicator/shared";
+import {
+  createReplicationJob,
+  hydrogenReplicationIntakeSchema,
+  referenceIntakeSchema
+} from "@shopify-web-replicator/shared";
 
+import { logger } from "./logger.js";
 import { InMemoryJobRepository, type JobRepository } from "./repository/in-memory-job-repository.js";
 import { getDefaultRuntimeConfig } from "./runtime.js";
 
 type CreateAppOptions = {
   repository?: JobRepository;
   createJob?: (intake: ReferenceIntake) => Promise<ReplicationJobSummary>;
+  createHydrogenJob?: (intake: HydrogenReplicationIntake) => Promise<HydrogenReplicationJobSummary>;
   enqueueJob?: (jobId: string) => Promise<void> | void;
   runtime?: AppRuntimeConfig;
   allowedOrigins?: string[];
@@ -50,6 +58,17 @@ export function createApp(options: CreateAppOptions = {}) {
       };
     });
   const enqueueJob = options.enqueueJob ?? (async () => undefined);
+  const createHydrogenJob =
+    options.createHydrogenJob ??
+    (async (intake: HydrogenReplicationIntake) => ({
+      jobId: `hydrogen-${intake.targetId}`,
+      pipelineKind: "hydrogen" as const,
+      status: "in_progress",
+      currentStage: "source_qualification",
+      createdAt: new Date().toISOString(),
+      targetId: intake.targetId,
+      referenceUrl: intake.referenceUrl
+    }));
   const runtime = options.runtime ?? getDefaultRuntimeConfig();
   const allowedOrigins = resolveAllowedOrigins(options.allowedOrigins);
   const app = new Hono();
@@ -79,7 +98,10 @@ export function createApp(options: CreateAppOptions = {}) {
 
       queueMicrotask(() => {
         void Promise.resolve(enqueueJob(created.jobId)).catch((error) => {
-          console.error("Failed to enqueue replication job", error);
+          logger.error("Failed to enqueue replication job", {
+            jobId: created.jobId,
+            error
+          });
         });
       });
 
@@ -123,6 +145,37 @@ export function createApp(options: CreateAppOptions = {}) {
     const recentJobs = await repository.listRecent(Number.isFinite(limit) && limit > 0 ? limit : 10);
 
     return context.json(recentJobs);
+  });
+
+  app.post("/api/hydrogen/jobs", async (context) => {
+    try {
+      const payload = await context.req.json();
+      const intake = hydrogenReplicationIntakeSchema.parse(payload);
+      const created = await createHydrogenJob(intake);
+
+      return context.json(created, 201);
+    } catch (error: unknown) {
+      if (error instanceof ZodError) {
+        return context.json(
+          {
+            error: "Invalid Hydrogen intake payload",
+            issues: error.issues
+          },
+          400
+        );
+      }
+
+      if (error instanceof Error) {
+        return context.json(
+          {
+            error: error.message
+          },
+          400
+        );
+      }
+
+      throw error;
+    }
   });
 
   app.get("/api/runtime", (context) => {

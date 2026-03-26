@@ -32,7 +32,7 @@ describe("DeterministicThemeMapper", () => {
     expect(mapping.sections[0]).toMatchObject({
       type: "hero",
       heading: "Launch Offer",
-      ctaLabel: "Review generated output"
+      ctaLabel: "Learn more"
     });
     expect(mapping.summary).toContain("Keep the CTA aggressive");
   });

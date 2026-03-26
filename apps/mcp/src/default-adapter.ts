@@ -56,6 +56,10 @@ export function createDefaultReplicatorMcpAdapter(
       return withPreflight("replicate", (orchestrator) => orchestrator.replicateStorefront(input));
     },
 
+    async enqueueHydrogenReplication(input) {
+      return withPreflight("read", (orchestrator) => orchestrator.enqueueHydrogenReplication(input));
+    },
+
     async getJob(jobId) {
       return withPreflight("read", (orchestrator) => orchestrator.getJob(jobId));
     },

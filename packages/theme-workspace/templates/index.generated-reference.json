@@ -3,12 +3,14 @@
     "main": {
       "type": "generated-homepage-reference",
       "settings": {
-        "eyebrow": "Generated homepage",
-        "heading": "Homepage replication workspace",
-        "body": "This alternate homepage template points at the generated homepage reference section.",
-        "mapping_summary": "The deterministic homepage pipeline will replace this placeholder."
+        "eyebrow": "Kip",
+        "heading": "Kip",
+        "body": "Kip is prepared as a Liquid-first homepage ready for operator QA.",
+        "cta_label": "Open homepage preview"
       }
     }
   },
-  "order": ["main"]
+  "order": [
+    "main"
+  ]
 }

@@ -83,12 +83,9 @@ describe("ReplicationPipeline", () => {
 
     const repository = new SqliteJobRepository(join(dataRoot, "replicator.db"));
     const job = createReplicationJob({
-<<<<<<< HEAD
-      referenceUrl: "https://example.com",
+      referenceUrl: "https://example.com/launch",
       destinationStore: "local-dev-store",
-=======
-      referenceUrl: "https://example.com/offer",
->>>>>>> 0ff837ae2df3782ab4b72a9b6d93d92b7f7d8110
+      pageType: "landing_page",
       notes: "Landing page MVP"
     });
 
@@ -114,7 +111,12 @@ describe("ReplicationPipeline", () => {
       },
       routeInventoryService: {
         async build() {
-          return { discoveredAt: "2026-03-20T12:00:20.000Z", referenceHost: "example.com", summary: "Discovered 1 routes.", routes: [{ kind: "homepage" as const, source: "root" as const, url: "https://example.com/" }] };
+          return {
+            discoveredAt: "2026-03-20T12:00:20.000Z",
+            referenceHost: "example.com",
+            summary: "Discovered 1 routes.",
+            routes: [{ kind: "content_page" as const, source: "cta" as const, url: "https://example.com/launch" }]
+          };
         }
       },
       storefrontModelBuilder: {
@@ -244,7 +246,7 @@ describe("ReplicationPipeline", () => {
       ])
     );
     await expect(readFile(join(themeRoot, "sections/generated-reference.liquid"), "utf8")).resolves.toContain(
-      "Example heading"
+      "Example Storefront"
     );
     await expect(
       readFile(join(themeRoot, "templates/page.generated-reference.json"), "utf8")
@@ -381,6 +383,12 @@ describe("ReplicationPipeline", () => {
 
     const pipeline = new ReplicationPipeline({
       repository,
+      runtime: {
+        themeWorkspacePath: themeRoot,
+        captureRootPath: join(dataRoot, "captures"),
+        previewCommand: "shopify theme dev",
+        destinationStores: [{ id: "local-dev-store", label: "Local Dev Store", shopDomain: "local-dev-store.myshopify.com" }]
+      },
       qualificationService: {
         async qualify({ referenceUrl }) {
           return createQualification(referenceUrl);
@@ -402,6 +410,38 @@ describe("ReplicationPipeline", () => {
             analyzedAt: "2026-03-20T12:01:00.000Z",
             recommendedSections: ["product_detail", "rich_text", "cta"]
           } satisfies ReferenceAnalysis;
+        }
+      },
+      routeInventoryService: {
+        async build() {
+          return {
+            discoveredAt: "2026-03-20T12:00:20.000Z",
+            referenceHost: "example.com",
+            summary: "Discovered 1 routes.",
+            routes: [{ kind: "product_page" as const, source: "cta" as const, url: "https://example.com/products/trail-pack" }]
+          };
+        }
+      },
+      storefrontModelBuilder: {
+        async build() {
+          return {
+            modeledAt: "2026-03-20T12:00:25.000Z",
+            referenceHost: "example.com",
+            storeTitle: "Trail Pack",
+            summary: "Built storefront model.",
+            styleTokens: { dominantColors: [], fontFamilies: [] },
+            pages: [],
+            products: [],
+            collections: [],
+            menus: [],
+            contentModels: [],
+            unsupportedFeatures: []
+          };
+        }
+      },
+      assetSyncService: {
+        async sync() {
+          return { syncedAt: "2026-03-20T12:02:30.000Z", summary: "Synced 0 assets.", assets: [] };
         }
       },
       mapper: {
@@ -762,7 +802,9 @@ describe("ReplicationPipeline", () => {
 
     const repository = new SqliteJobRepository(join(dataRoot, "replicator.db"));
     const job = createReplicationJob({
-      referenceUrl: "https://example.com",
+      referenceUrl: "https://example.com/launch",
+      destinationStore: "local-dev-store",
+      pageType: "landing_page",
       notes: "Landing page MVP"
     });
 
@@ -770,6 +812,54 @@ describe("ReplicationPipeline", () => {
 
     const pipeline = new ReplicationPipeline({
       repository,
+      runtime: {
+        themeWorkspacePath: themeRoot,
+        captureRootPath: join(dataRoot, "captures"),
+        previewCommand: "shopify theme dev",
+        destinationStores: [{ id: "local-dev-store", label: "Local Dev Store", shopDomain: "local-dev-store.myshopify.com" }]
+      },
+      qualificationService: {
+        async qualify({ referenceUrl }) {
+          return createQualification(referenceUrl);
+        }
+      },
+      captureService: {
+        async capture({ referenceUrl }) {
+          return createCapture(referenceUrl, "Example Storefront");
+        }
+      },
+      routeInventoryService: {
+        async build() {
+          return {
+            discoveredAt: "2026-03-20T12:00:20.000Z",
+            referenceHost: "example.com",
+            summary: "Discovered 1 routes.",
+            routes: [{ kind: "content_page" as const, source: "cta" as const, url: "https://example.com/launch" }]
+          };
+        }
+      },
+      storefrontModelBuilder: {
+        async build() {
+          return {
+            modeledAt: "2026-03-20T12:00:25.000Z",
+            referenceHost: "example.com",
+            storeTitle: "Example Storefront",
+            summary: "Built storefront model.",
+            styleTokens: { dominantColors: [], fontFamilies: [] },
+            pages: [],
+            products: [],
+            collections: [],
+            menus: [],
+            contentModels: [],
+            unsupportedFeatures: []
+          };
+        }
+      },
+      assetSyncService: {
+        async sync() {
+          return { syncedAt: "2026-03-20T12:02:30.000Z", summary: "Synced 0 assets.", assets: [] };
+        }
+      },
       analyzer: {
         async analyze({ referenceUrl, notes }) {
           return {
