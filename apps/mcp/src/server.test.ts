@@ -407,7 +407,7 @@ describe("createReplicatorMcpHandlers", () => {
     });
   });
 
-  it("returns a structured runtime preflight error when replication cannot start", async () => {
+  it("re-throws runtime preflight errors from the orchestrator without wrapping", async () => {
     const handlers = createReplicatorMcpHandlers({
       replicateStorefront: vi.fn().mockRejectedValue(
         new RuntimePreflightError([
